@@ -182,3 +182,90 @@ def mask_region_latlon(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360):
         ds_out.attrs['standard_name']=ds.standard_name
     return ds_out
 
+def sea_ice_ext(ds, pweight):
+    ''' 
+    Calculates the sea ice extent from the sea ice concentration fice in BLOM
+    Sea ice concentration (fice) is the percent areal coverage of ice within the ocean grid cell. 
+    Sea ice extent is the integral sum of the areas of all grid cells with at least 15% ice concentration.
+    Sea ice area is the integral sum of the product of ice concentration and area of all grid cells with at least 15% ice concentration. See sea_ice_area(ds))
+    
+    Parameters
+    ----------
+    ds : xarray.DaraArray i.e.  ds[var] (var = fice in BLOM)
+    pweight : xarray.DataArray with area information
+    
+    Returns
+    -------
+    ds_out : xarray.DaraSet with sea-extent for each hemisphere, in March and in September
+
+    '''
+    ds_out = None
+    if not isinstance(pweight,xr.DataArray):
+        # only if pweight is not provided. Only works for 1deg ocean 
+        grid = xr.open_mfdataset('/cluster/shared/noresm/inputdata/ocn/blom/grid/grid_tnx1v4_20170622.nc')
+        pweight = grid.parea*grid.pmask
+    for monthnr in [3, 9]:
+        da = ds.groupby('time.month').sel(month=monthnr)
+        parea = pweight.where(da>=15)
+        SHout = parea.where(pweight.pclat <=0).sum(dim=('x','y'))/100/(1E6*(1000*1000))
+        SHout.attrs['standard_name'] = 'siext_SH_0%i'%monthnr
+        SHout.attrs['units'] = '10^6 km^2'
+        SHout.attrs['long_name'] = 'southern_hemisphere_sea_ice_extent_month_0%i'%monthnr
+        NHout = parea.where(pweight.pclat >=0).sum(dim=('x','y'))/100/(1E6*(1000*1000))
+        NHout.attrs['standard_name'] = 'siext_NH_0%i'%monthnr
+        NHout.attrs['units'] = '10^6 km^2'
+        NHout.attrs['long_name'] = 'northern_hemisphere_sea_ice_extent_month_0%i'%monthnr
+        if isinstance(ds_out,xr.Dataset):
+            ds_out = xr.merge([ds_out, SHout.to_dataset(name = 'siext_SH_0%i'%monthnr), NHout.to_dataset(name = 'siext_NH_0%i'%monthnr)])
+        else:
+            ds_out = xr.merge([SHout.to_dataset(name = 'siext_SH_0%i'%monthnr), NHout.to_dataset(name = 'siext_NH_0%i'%monthnr)])
+        
+    return ds_out
+
+def sea_ice_area(ds, pweight):
+    ''' 
+    Calculates the sea ice extent from the sea ice concentration fice in BLOM
+    Sea ice concentration (fice) is the percent areal coverage of ice within the ocean grid cell. 
+    Sea ice extent is the integral sum of the areas of all grid cells with at least 15% ice concentration.
+    Sea ice area is the integral sum of the product of ice concentration and area of all grid cells with at least 15% ice concentration. See sea_ice_area(ds))
+    
+    Parameters
+    ----------
+    ds : xarray.DaraArray i.e.  ds[var] (var = fice in BLOM)
+    pweight : xarray.DataArray with area information
+    
+    Returns
+    -------
+    ds_out : xarray.DaraSet with sea-extent for each hemisphere, in March and in September
+
+    '''
+    ds_out = None
+    if not isinstance(pweight,xr.DataArray):
+        # only if pweight is not provided. Only works for 1deg ocean 
+        grid = xr.open_mfdataset('/cluster/shared/noresm/inputdata/ocn/blom/grid/grid_tnx1v4_20170622.nc')
+        pweight = grid.parea*grid.pmask
+    for monthnr in [3, 9]:
+        da = ds.groupby('time.month').sel(month=monthnr)
+        parea = (da*pweight).where(da>=15)
+        SHout = parea.where(pweight.pclat <=0).sum(dim=('x','y'))/100/(1E6*(1000*1000))
+        SHout.attrs['standard_name'] = 'siarea_SH_0%i'%monthnr
+        SHout.attrs['units'] = '10^6 km^2'
+        SHout.attrs['long_name'] = 'southern_hemisphere_sea_ice_area_month_0%i'%monthnr
+        NHout = parea.where(pweight.pclat >=0).sum(dim=('x','y'))/100/(1E6*(1000*1000))
+        NHout.attrs['standard_name'] = 'siarea_NH_0%i'%monthnr
+        NHout.attrs['units'] = '10^6 km^2'
+        NHout.attrs['long_name'] = 'northern_hemisphere_sea_ice_area_month_0%i'%monthnr
+        if isinstance(ds_out,xr.Dataset):
+            ds_out = xr.merge([ds_out, SHout.to_dataset(name = 'siarea_SH_0%i'%monthnr), NHout.to_dataset(name = 'siarea_NH_0%i'%monthnr)])
+        else:
+            ds_out = xr.merge([SHout.to_dataset(name = 'siarea_SH_0%i'%monthnr), NHout.to_dataset(name = 'siarea_NH_0%i'%monthnr)])
+
+    return ds_out
+
+        
+    
+    
+
+       
+    
+
