@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct  7 17:08:18 2020
+Created on Wed Oct 27 16:30:24 2021
 
-@author: adag
+@author: Ada Gjermundsen
+
+General python functions for analyzing NorESM data 
+
 """
-import glob
-import time
+import xarray as xr
 import numpy as np
-from dask.diagnostics import ProgressBar
 import warnings
 warnings.simplefilter('ignore')
-import xarray as xr
-xr.set_options(enable_cftimeindex=True)
 
 def consistent_naming(ds):
     '''
@@ -192,11 +191,14 @@ def mask_region_latlon(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360):
     else:
         boole = (ds_out.lon.values <= lon_high) | (ds_out.lon.values >= lon_low)
         ds_out = ds_out.sel(lon=ds_out.lon.values[boole])
-    ds_out.attrs['long_name']= 'Regional subset (%i,%i,%i,%i) of '%(lat_low_lat_high,lon_low,lon_high) + ds.long_name
-    ds_out.attrs['units']=ds.units
+    if 'long_name' in ds.attrs:
+        ds_out.attrs['long_name']= 'Regional subset (%i,%i,%i,%i) of '%(lat_low,lat_high,lon_low,lon_high) + ds.long_name 
+    if 'units' in ds.attrs:
+        ds_out.attrs['units']=ds.units
     if 'standard_name'  in ds.attrs:
-        ds_out.attrs['standard_name']=ds.standard_name
+        ds_out.attrs['standard_name']= 'Regional subset (%i,%i,%i,%i) of '%(lat_low,lat_high,lon_low,lon_high) + ds.standard_name
     return ds_out
+
 
 def get_areacello(cmor=True):
     '''
@@ -205,7 +207,7 @@ def get_areacello(cmor=True):
     if not cmor:
         # This path only works on FRAM and BETZY
         grid = xr.open_dataset('/cluster/shared/noresm/inputdata/ocn/blom/grid/grid_tnx1v4_20170622.nc')
-        pweight = grid.parea*grid.pmask
+        pweight = grid.parea*grid.pmask.where(grid.pmask>0)
         # add latitude and longitude info good to have in case of e.g. regridding
         pweight = pweight.assign_coords(lat=grid.plat)
         pweight = pweight.assign_coords(lon=grid.plon)
@@ -218,7 +220,7 @@ def get_areacello(cmor=True):
     return pweight
 
 
-def sea_ice_ext(ds, pweight = None, cmor = False):
+def sea_ice_ext(ds, pweight = None, cmor = True):
     ''' 
     Calculates the sea ice extent from the sea ice concentration fice in BLOM raw output and siconc in cmorized files
     Sea ice concentration (fice or siconc) is the percent areal coverage of ice within the ocean grid cell. 
@@ -238,9 +240,7 @@ def sea_ice_ext(ds, pweight = None, cmor = False):
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     for monthnr in [3, 9]:
-        mport sys
-sys.path.insert(1, '/scratch/adagj/CMIP6/CLIMSENS/CMIP6_UTILS')
-da = ds.sel(time = ds.time.dt.month == monthnr)
+        da = ds.sel(time = ds.time.dt.month == monthnr)
         parea = pweight.where(da>=15)
         SHout = parea.where(pweight.lat <=0).sum(dim=('i','j'))/(1E6*(1000*1000))
         SHout.attrs['standard_name'] = 'siext_SH_0%i'%monthnr
@@ -254,10 +254,10 @@ da = ds.sel(time = ds.time.dt.month == monthnr)
             ds_out = xr.merge([ds_out, SHout.to_dataset(name = 'siext_SH_0%i'%monthnr), NHout.to_dataset(name = 'siext_NH_0%i'%monthnr)])
         else:
             ds_out = xr.merge([SHout.to_dataset(name = 'siext_SH_0%i'%monthnr), NHout.to_dataset(name = 'siext_NH_0%i'%monthnr)])
-
+        
     return ds_out
 
-def sea_ice_area(ds, pweight = None, cmor = False):
+def sea_ice_area(ds, pweight = None, cmor = True):
     ''' 
     Calculates the sea ice extent from the sea ice concentration fice in BLOM raw output and siconc in cmorized files
     Sea ice concentration (fice or siconc) is the percent areal coverage of ice within the ocean grid cell. 
@@ -311,12 +311,12 @@ def select_atlantic_latbnds(ds):
     '''
     # basin = 0 ->  sector = atlantic_arctic_ocean
     ds = ds.isel(basin = 0)
-    amoc26_5 = ds.sel(lat=26)
+    amoc26 = ds.sel(lat=26)
     amoc45 = ds.sel(lat=45)
     amoc20_60 = ds.sel(lat=slice(20,60)).max(dim='lat')
-    return zip([amoc26_5, amoc45, amoc20_60],['26N', '45N', 'max20N_60N'])
-
-
+    return zip([amoc26, amoc45, amoc20_60],['26N', '45N', 'max20N_60N'])
+        
+    
 def amoc(ds):
     ''' 
     Calculates the Atlantic meridional overturning circulation 
@@ -334,9 +334,8 @@ def amoc(ds):
     zipvals = select_atlantic_latbnds(ds)
     for da, lat_lim in zipvals:
         da = 1e-9*da.max(dim = 'lev')
-        #print(da)
         da.attrs['long_name']='Max Atlantic Ocean Overturning Mass Streamfunction @%s'%lat_lim
-        da.attrs['units']='Sv'
+        da.attrs['units']='kg s-1'
         da.attrs['standard_name']='max_atlantic_ocean_overturning_mass_streamfunction_%s'%lat_lim
         da.attrs['description']='Max Atlantic Overturning mass streamfunction arising from all advective mass transport processes, resolved and parameterized @%s'%lat_lim
         if 'lat' in da.coords:
@@ -350,7 +349,6 @@ def amoc(ds):
             ds_out = xr.merge([ds_out, da])
         else:
             ds_out = da
-    print(ds_out)
     return ds_out
 
 def atl_hfbasin(ds):
@@ -402,7 +400,7 @@ def areaavg_ocn(ds, pweight=None, cmor = True):
     '''
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
-    ds_out = ((ds*pweight).sum(dim=("j","i")))/pweight.sum()
+    ds_out = ((ds*pweight).sum(dim=("j","i")))/pweight.sum()  
     if 'long_name'  in ds.attrs:
         ds_out.attrs['long_name']= 'Globally averaged ' + ds.long_name
     if 'units'  in ds.attrs:
@@ -435,7 +433,7 @@ def regionalavg_ocn(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360, pweig
         ds_out.attrs['standard_name']=ds.standard_name
     return ds_out
 
-def volumeavg_ocn(ds, dp, pbot, pweight=None, cmor = True):
+def volumeavg_ocn(ds, dp, pweight=None, cmor = True):
     ''' 
     Calculates volume averaged values   
     
@@ -451,7 +449,9 @@ def volumeavg_ocn(ds, dp, pbot, pweight=None, cmor = True):
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     if 'sigma' in ds.coords:
-        ds_out = pweigth*((ds*dp).sum(dim=('sigma'))/dp.sum(dim='sigma')).sum(dim=("j","i"))/pweight.sum()
+        ds = (ds*dp).sum(dim='sigma')
+        dpweight = dp.sum(dim='sigma')
+        ds_out = (pweight*ds).sum(dim=('j','i'))/(pweight*dpweight).sum(dim=('i','j'))
     if 'long_name'  in ds.attrs:
         ds_out.attrs['long_name']= 'Volume averaged ' + ds.long_name
     if 'units'  in ds.attrs:
@@ -459,150 +459,4 @@ def volumeavg_ocn(ds, dp, pbot, pweight=None, cmor = True):
     if 'standard_name'  in ds.attrs:
         ds_out.attrs['standard_name']=ds.standard_name
     return ds_out
-
-def extract_number(string):
-    return string.split('_')[-1]
-
-def extract_dates(string):
-    return string.split('_')[-1].split('.')[0]
-
-def checkConsecutive(fnames):
-    sorteddates = [extract_dates(x) for x in fnames]
-    for i in range(1,len(sorteddates)):
-        if int(sorteddates[i].split('01-')[0]) != int(sorteddates[i-1].split('-')[1][:-2])+1:
-            print('NOTE! The files are not in consecutive order. Please check directory')
-            print(fnames)
-            raise Exception('NOTE! The files are not in consecutive order. Please check directory')
-
-def make_filelist_raw(expid, path, component='atmos', yrs = None, yre = None):
-    if component in ['atmos']:
-        fnames = '%s/atm/hist/%s.cam.h0.*.nc'%(expid, expid)
-    if component in ['ocean']:
-        fnames = '%s/ocn/hist/%s.blom.hm.*.nc'%(expid, expid)
-        if not sorted(glob.glob(path + fnames)):
-            fnames = '%s/ocn/hist/%s.micom.hm.*.nc'%(expid, expid)
-    if component in ['land']:
-        fnames = '%s/lnd/hist/%s.clm2.h0.*.nc'%(expid, expid)
-    if component in ['seaice']:
-        fnames = '%s/ice/hist/%s.cice.h.*.nc'%(expid, expid)
-    fnames = sorted(glob.glob(path + fnames))
-    if yrs or yre:
-        # all simulated years in experiment
-        allyears = [int(fnames[i].split('/')[-1].split('.')[-2].split('-')[0].lstrip('0')) for i in range(0,len(fnames))]
-        if yrs and yre:
-             # create subset of filenames starting with year: yrs and ending with year: yre
-            boole =  (np.array(allyears)<=yre)*(np.array(allyears)>=yrs)
-        elif yrs and not yre:
-            # create subset of filenames starting with year: yrs and to the end of the simulation
-            boole =(np.array(allyears)>=yrs)
-        elif not yrs and yre:
-            # create subset of filenames from the start of the simulation and ending with year: yre
-            boole =  (np.array(allyears)<=yre)
-        fnames = [val for is_good, val in zip(boole, fnames) if is_good]
-    # test that the files contained in the filelist covers all years in consecutive order
-    if len(fnames)>1:
-        for i in range(12,len(fnames),12):
-            if int(fnames[i].split('/')[-1].split('.')[-2].split('-')[0].lstrip('0'))!=int(fnames[i-12].split('/')[-1].split('.')[-2].split('-')[0].lstrip('0'))+1:
-                #print('NOTE! The files are not in consecutive order. Please check directory')
-                print(fnames)
-                raise Exception('NOTE! The files are not in consecutive order. Please check directory')
-    return fnames
-
-def read_netcdfs_slow(files, dim='time', transform_func=None):
-    def process_one_path(path):
-        # use a context manager, to ensure the file gets closed after use
-        with xr.open_dataset(path) as ds:
-            # transform_func should do some sort of selection or
-            # aggregation
-            if transform_func is not None:
-                ds = transform_func(ds)
-            # load all data from the transformed dataset, to ensure we can
-            # use it after closing each original file
-            ds.load()
-            return ds
-    paths = sorted(glob.glob(files))
-    datasets = [process_one_path(p) for p in paths]
-    combined = xr.concat(datasets, dim)
-    return combined
-
-def read_netcdfs_dask(files, dim='time', transform_func=None):
-    # if the reading crashes due to memory issues you may add chunks, i.e. parallel=True, chunks={"time":12}
-    with xr.open_mfdataset(files, concat_dim="time", combine="nested",
-                  data_vars='minimal', coords='minimal', compat='override') as ds:
-        # transform_func should do some sort of selection on aggregation
-        if transform_func is not None:
-            ds = transform_func(ds)
-        # load all data from the transformed dataset, to ensure we can
-        # use it after closing each original file
-    return ds
-
-
-# here we suppose we only care about the combined mean of each file;
-# you might also use indexing operations like .sel to subset datasets
-
-#filenames = '/cluster/work/users/adagj/archive/NCO2x4frc2_f09_tn14_keyclim_snow/ocn/hist/NCO2x4frc2_f09_tn14_keyclim_snow.blom.hm.00*.nc'
-#varlist = ['temp','saln', 'sss', 'sst', 'mmflxd', 'mhflx']
-#start = time.time()
-#print("Start reading netcdf files using xarray")
-#combined = read_netcdfs(filenames, dim='time',
-#                        transform_func=None)
-##combined = yearly_avg(combined)
-#print(combined)
-##tmp = combined.to_netcdf('test1.nc')
-#end = time.time()
-#print('Time spent in function')
-#print(end - start)
-#del start, end, combined, tmp
-
-#filenames = '/cluster/work/users/adagj/archive/NCO2x4frc2_f09_tn14_keyclim_snow/atm/hist/NCO2x4frc2_f09_tn14_keyclim_snow.cam.h0.00*.nc'
-#varlist = ['FSNT', 'FSNTC', 'FLNT','FLNTC', 'FSNS', 'FSNSC','FLNS','FLNSC','FLUT','FLUTC', 'FSNTOA','FSNTOAC',
-#            'FLDS' , 'FSDS','FSDSC', 'AODVVOLC', 'AOD_VIS', 'CAODVIS','QREFHT',
-#           'ICEFRAC','SWCF','LWCF','TREFHT','CLDFREE', 'CLDTOT', 'CLDHGH', 'CLDLOW', 'CLDMED', 'LHFLX', 'SHFLX', 'TS', 'U10']
-
-#start = time.time()
-#print("Start reading netcdf files using dask and parallel")
-
-#combined = read_netcdfs_dask(filenames, dim='time',
-#                        transform_func=lambda ds: ds[varlist].map(global_mean).map(yearly_avg))
-#print(combined)
-#tmp = combined.to_netcdf('test2.nc', compute = False)
-#with ProgressBar():
-#    result = tmp.compute()
-#end = time.time()
-#print('Time spent in function')
-#print(end - start)
-
-expid = 'NCO2x4frc2_f09_tn14_keyclim_snow'
-path = '/cluster/work/users/adagj/archive/'
-#fnames = make_filelist_raw(expid, path)
-#print(fnames)
-#fnames = make_filelist_raw(expid, path, component='ocean', yrs = 11)
-#print(fnames)
-
-#combined = read_netcdfs_dask(fnames, dim='time',
-#                             transform_func=lambda ds: ds[varlist].map(consistent_naming).map(areaavg_ocn,cmor=False).map(yearly_avg))
-
-varlist = ['sst','sss','mmflxd', 'mhflx', 'fice']
-fnames = make_filelist_raw(expid, path, component='ocean')#, yrs = 11, yre = 16)
-ds = read_netcdfs_dask(fnames, dim='time', transform_func=lambda ds: ds[varlist].map(consistent_naming))
-print(ds)  
-areaavg =ds[['sss', 'sst']].map(areaavg_ocn,cmor=False).map(yearly_avg)
-print(areaavg)
-amoc = amoc(ds['mmflxd']).map(yearly_avg)
-print(amoc)
-oht = atl_hfbasin(ds['mhflx']).map(yearly_avg)
-print(oht)
-siext = sea_ice_ext(ds['fice'],cmor = False)
-print(siext)
-siarea = sea_ice_area(ds['fice'], cmor = False)
-print(siarea)
-combined = xr.merge([areaavg, amoc, oht, siext, siarea])
-print(combined)
-tmp = combined.to_netcdf('test2.nc', compute = False)
-with ProgressBar():
-    result = tmp.compute()
-
-
-
-#fnames = make_filelist_raw(expid, path, component='seaice',  yre = 29)
-#print(fnames)
+   
