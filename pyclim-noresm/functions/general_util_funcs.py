@@ -30,7 +30,7 @@ def consistent_naming(ds):
 
     '''
     if 'latitude' in ds.coords and 'lat' not in ds.coords:
-        ds = ds.rename({'latitude':'lat', 'longitude':'lon'})
+        ds = ds.rename({'latitude':'lat'})
     if 'longitude' in ds.coords and 'lon' not in ds.coords:
         ds = ds.rename({'longitude':'lon'})
     if 'region' in ds.dims:
@@ -43,9 +43,9 @@ def consistent_naming(ds):
     if 'y' in ds.dims:
         ds = ds.rename({'y':'j'})
     if 'depth' in ds.dims:
-        ds = ds.rename({'depth','lev'})
+        ds = ds.rename({'depth':'lev'})
     if 'bounds' in ds.dims:
-        ds = ds.rename({'bounds','bnds'})
+        ds = ds.rename({'bounds':'bnds'})
     return ds
 
 
@@ -191,10 +191,12 @@ def mask_region_latlon(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360):
     else:
         boole = (ds_out.lon.values <= lon_high) | (ds_out.lon.values >= lon_low)
         ds_out = ds_out.sel(lon=ds_out.lon.values[boole])
-    ds_out.attrs['long_name']= 'Regional subset (%i,%i,%i,%i) of '%(lat_low_lat_high,lon_low,lon_high) + ds.long_name 
-    ds_out.attrs['units']=ds.units
+    if 'long_name' in ds.attrs:
+        ds_out.attrs['long_name']= 'Regional subset (%i,%i,%i,%i) of '%(lat_low,lat_high,lon_low,lon_high) + ds.long_name 
+    if 'units' in ds.attrs:
+        ds_out.attrs['units']=ds.units
     if 'standard_name'  in ds.attrs:
-        ds_out.attrs['standard_name']=ds.standard_name
+        ds_out.attrs['standard_name']= 'Regional subset (%i,%i,%i,%i) of '%(lat_low,lat_high,lon_low,lon_high) + ds.standard_name
     return ds_out
 
 
@@ -205,7 +207,7 @@ def get_areacello(cmor=True):
     if not cmor:
         # This path only works on FRAM and BETZY
         grid = xr.open_dataset('/cluster/shared/noresm/inputdata/ocn/blom/grid/grid_tnx1v4_20170622.nc')
-        pweight = grid.parea*grid.pmask
+        pweight = grid.parea*grid.pmask.where(grid.pmask>0)
         # add latitude and longitude info good to have in case of e.g. regridding
         pweight = pweight.assign_coords(lat=grid.plat)
         pweight = pweight.assign_coords(lon=grid.plon)
@@ -398,7 +400,7 @@ def areaavg_ocn(ds, pweight=None, cmor = True):
     '''
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
-    ds_out = ((da*pweight).sum(dim=("j","i")))/pweight.sum()  
+    ds_out = ((ds*pweight).sum(dim=("j","i")))/pweight.sum()  
     if 'long_name'  in ds.attrs:
         ds_out.attrs['long_name']= 'Globally averaged ' + ds.long_name
     if 'units'  in ds.attrs:
@@ -422,7 +424,7 @@ def regionalavg_ocn(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360, pweig
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     pweight = mask_region_latlon(pweight, lat_low=lat_low, lat_high=lat_high, lon_low=lon_low, lon_high=lon_high)
-    ds_out = ((da*pweight).sum(dim=("j","i")))/pweight.sum()
+    ds_out = ((ds*pweight).sum(dim=("j","i")))/pweight.sum()
     if 'long_name'  in ds.attrs:
         ds_out.attrs['long_name']= 'Regional avg (%i,%i,%i,%i) '%(lat_low,lat_high,lon_low,lon_high) + ds.long_name
     if 'units'  in ds.attrs:
@@ -431,7 +433,7 @@ def regionalavg_ocn(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360, pweig
         ds_out.attrs['standard_name']=ds.standard_name
     return ds_out
 
-def volumeavg_ocn(ds, dp, pbot, pweight=None, cmor = True):
+def volumeavg_ocn(ds, dp, pweight=None, cmor = True):
     ''' 
     Calculates volume averaged values   
     
@@ -447,7 +449,9 @@ def volumeavg_ocn(ds, dp, pbot, pweight=None, cmor = True):
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     if 'sigma' in ds.coords:
-        ds_out = pweigth*((ds*dp).sum(dim=('sigma'))/dp.sum(dim='sigma')).sum(dim=("j","i"))/pweight.sum()
+        ds = (ds*dp).sum(dim='sigma')
+        dpweight = dp.sum(dim='sigma')
+        ds_out = (pweight*ds).sum(dim=('j','i'))/(pweight*dpweight).sum(dim=('i','j'))
     if 'long_name'  in ds.attrs:
         ds_out.attrs['long_name']= 'Volume averaged ' + ds.long_name
     if 'units'  in ds.attrs:
