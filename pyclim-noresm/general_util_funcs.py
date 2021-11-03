@@ -44,12 +44,16 @@ def consistent_naming(ds):
         ds = ds.rename({'y':'j'})
     if 'depth' in ds.dims:
         ds = ds.rename({'depth':'lev'})
+    if 'nbnd' in ds.dims:
+        ds = ds.rename({'nbnd':'bnds'})
+    if 'nbounds' in ds.dims:
+        ds = ds.rename({'nbounds':'bnds'})
     if 'bounds' in ds.dims:
         ds = ds.rename({'bounds':'bnds'})
     return ds
 
 
-def global_mean(ds):
+def global_avg(ds):
     '''Calculates globally averaged values
 
     Parameters
@@ -74,6 +78,27 @@ def global_mean(ds):
         ds_out.attrs['standard_name']=ds.standard_name
     return ds_out
 
+def fix_cam_time(ds):
+    ''' NorESM raw CAM h0 files has incorrect time variable output,
+    thus it is necessary to use time boundaries to get the correct time
+    If the time variable is not corrected, none of the functions involving time
+    e.g. yearly_avg, seasonal_avg etc. will provide correct information
+
+    Parameters
+    ----------
+    ds : xarray.DaraSet 
+
+    Returns
+    -------
+    ds_weighted : xarray.DaraSet with corrected time
+    '''
+    from cftime import DatetimeNoLeap
+    months = ds.time_bnds.isel(bnds=0).dt.month.values
+    years = ds.time_bnds.isel(bnds=0).dt.year.values
+    dates = [DatetimeNoLeap(year, month, 15) for year, month in zip(years, months) ]
+    ds = ds.assign_coords(time = dates)
+    return ds
+   
 def yearly_avg(ds):
     ''' Calculates timeseries over yearly averages from timeseries of monthly means
     The weighted average considers that each month has a different number of days.
@@ -85,7 +110,11 @@ def yearly_avg(ds):
     Returns
     -------
     ds_weighted : xarray.DaraArray with yearly averaged values
+
     '''
+    # Note! NorESM raw CAM h0 files has wrong time variable, necessary to use time boundaries to 
+    # get the correct time
+ 
     month_length = ds.time.dt.days_in_month
     weights = month_length.groupby('time.year') / month_length.groupby('time.year').sum()
     # Test that the sum of the weights for each year is 1.0
@@ -220,6 +249,22 @@ def get_areacello(cmor=True):
     return pweight
 
 
+def select_month(ds, monthnr):
+    ''' Calulates timeseries for one given month 
+
+    Parameters
+    ----------
+    ds : xarray.DaraArray i.e. ds[var]
+    monthnr: int , nr of month 1 = January, 2 = February etc.
+    
+    Returns
+    -------
+    ds : xarray.DaraArray with single month values
+    '''
+    
+    ds = ds.sel(time = ds.time.dt.month == monthnr)
+    return ds
+
 def sea_ice_ext(ds, pweight = None, cmor = True):
     ''' 
     Calculates the sea ice extent from the sea ice concentration fice in BLOM raw output and siconc in cmorized files
@@ -240,7 +285,7 @@ def sea_ice_ext(ds, pweight = None, cmor = True):
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     for monthnr in [3, 9]:
-        da = ds.sel(time = ds.time.dt.month == monthnr)
+        da = select_month(ds, monthnr)
         parea = pweight.where(da>=15)
         SHout = parea.where(pweight.lat <=0).sum(dim=('i','j'))/(1E6*(1000*1000))
         SHout.attrs['standard_name'] = 'siext_SH_0%i'%monthnr
@@ -277,7 +322,7 @@ def sea_ice_area(ds, pweight = None, cmor = True):
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     for monthnr in [3, 9]:
-        da = ds.sel(time = ds.time.dt.month == monthnr)
+        da = select_month(ds, monthnr)
         parea = (da*pweight).where(da>=15)
         SHout = parea.where(pweight.lat <=0).sum(dim=('i','j'))/100/(1E6*(1000*1000))
         SHout.attrs['standard_name'] = 'siarea_SH_0%i'%monthnr
@@ -421,16 +466,17 @@ def regionalavg_ocn(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360, pweig
     -------
     ds_out : xarray.DaraArray
     '''
+    print(ds)
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     pweight = mask_region_latlon(pweight, lat_low=lat_low, lat_high=lat_high, lon_low=lon_low, lon_high=lon_high)
     ds_out = ((ds*pweight).sum(dim=("j","i")))/pweight.sum()
     if 'long_name'  in ds.attrs:
-        ds_out.attrs['long_name']= 'Regional avg (%i,%i,%i,%i) '%(lat_low,lat_high,lon_low,lon_high) + ds.long_name
+        ds_out.attrs['long_name']= 'Regional avg (latlims: %i,%i, lonlims: %i,%i) '%(lat_low,lat_high,lon_low,lon_high) + ds.long_name
     if 'units'  in ds.attrs:
         ds_out.attrs['units']=ds.units
     if 'standard_name'  in ds.attrs:
-        ds_out.attrs['standard_name']=ds.standard_name
+        ds_out.attrs['standard_name']='Regional_avg_(%i_%i_%i_%i) ' + ds.standard_name
     return ds_out
 
 def volumeavg_ocn(ds, dp, pweight=None, cmor = True):
