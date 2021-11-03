@@ -58,7 +58,7 @@ def fx_files(self, var='areacella', path_to_data = '/projects/NS9252K/ESGF/CMIP6
 #    return models
 
 
-def make_filelist_cmor(self, var, activity_id='CMIP', path_to_data = '/projects/NS9034K/CMIP6/'):
+def make_filelist_cmor(self, var, component = 'atmos', activity_id='CMIP', path_to_data = '/projects/NS9034K/CMIP6/'):
         '''
         Function for providing a list of all files in order to read a cmorized variable for a given experiment. 
         There is usually only one grid for the atmosphere; gn (grid native)
@@ -68,6 +68,7 @@ def make_filelist_cmor(self, var, activity_id='CMIP', path_to_data = '/projects/
         ----------
         self: model object
         var :          str, name of variable
+        component:     str, name of component (ocean, atmos, land, seaice). Default is atmos
         activity_id :  str, which MIP the experiment belongs to. Default is 'CMIP'    
         path_to_data : str, path to the data folders. Default is '/projects/NS9034K/CMIP6/'.
 
@@ -98,7 +99,7 @@ def make_filelist_cmor(self, var, activity_id='CMIP', path_to_data = '/projects/
                         fnames.append(file)              
         if fnames:
            if self.name=='NorESM2-MM' and self.realiz == 'r3i1p1f1':
-              # There exists one file for all cmorized variables for NorESM2-MM, member r3i1p1f1. Need to remove the file from the filelist
+              # There exists one extra file for all cmorized variables for NorESM2-MM, member r3i1p1f1. Need to remove the file from the filelist
               fnames.remove('/projects/NS9034K/CMIP6//CMIP/NCC/NorESM2-MM/historical/r3i1p1f1/Omon/' + var + '/' +gridlabel +'/latest/' + var +'_Omon_NorESM2-MM_historical_r3i1p1f1_'+gridlabel+'_186001-186105.nc')
            if len(fnames)>1:
                # test that the files contained in the filelist covers all years in consecutive order
@@ -171,7 +172,27 @@ def read_noresm_raw(fnames, dim='time', transform_func=None):
             ds = transform_func(ds)
     return ds
             
-     
+
+def read_noresm_cmor(model, varlist, component = 'atmos', dim='time', transform_func=None):
+    ds = None
+    for var in varlist:
+        make_filelist(model, var,  component = component, activity_id= model.activity_id, path_to_data = '/projects/NS9034K/CMIP6/')
+        # if the reading crashes due to memory issues you may add chunks, i.e. parallel=True, chunks={"time":12}
+        with xr.open_mfdataset(fnames, concat_dim="time", combine="nested",
+                  data_vars='minimal', coords='minimal', compat='override') as ds:
+            # transform_func should do some sort of selection on aggregation
+            if transform_func is not None:
+                ds = transform_func(ds)
+            if isinstance(ds, xr.Dataset):
+                ds = xr.merge([ds, xr.open_mfdataset(model.filenames, concat_dim="time", combine="nested",
+                               data_vars='minimal', coords='minimal', compat='override')])
+            else:
+                ds = xr.merge([ds, xr.open_mfdataset(model.filenames, concat_dim="time", combine="nested",
+                               data_vars='minimal', coords='minimal', compat='override')])
+    return ds
+delinfo
+
+ 
 class Modelinfo:
     '''
     Sets the details of the model experiment, including filenames
