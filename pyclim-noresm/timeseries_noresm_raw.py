@@ -37,9 +37,10 @@ if __name__ == '__main__':
                 'SWCF','LWCF','TREFHT','CLDFREE', 'CLDTOT', 'CLDHGH', 'CLDLOW', 'CLDMED', 'LHFLX', 'SHFLX', 'TS', 'U10']
     # if yrs is not given, the first year will be the first year of the simulation
     # if yre is not given, the last year will be the last year of the simulation
+    # e.g. fnames = make_filelist_raw(expid, path, component='atmos') 
     fnames = make_filelist_raw(expid, path, component='atmos', yrs = yrs, yre = yre)
-    # PLEASE NOTE  NorESM RAW cam files have incorrect time variable output,
-    # thus it is necessary to fix the time variable (fix_cam_time) on the WHOLE DATASET before any other functions involving time can be used! 
+    # PLEASE NOTE that NorESM RAW cam.h0 files have incorrect time variable output,
+    # thus it's necessary to fix the time variable (fix_cam_time) on the WHOLE DATASET before any other functions involving time can be used! 
     # If not done, the output is just WRONG! If you use CMORized data, it is not necessary, but it doesn't do any harm either
     ds = read_noresm_raw(fnames, dim='time', transform_func=lambda ds: guf.fix_cam_time(guf.consistent_naming(ds))[varlist])
     ds['RESTOM'] = ds['FSNT'] - ds['FLNT']
