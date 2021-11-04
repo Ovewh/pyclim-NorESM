@@ -12,7 +12,7 @@ Sea ice variables (area and extent) are calculated for March and September
 If you use xarray for plotting, that works just fine 
 """
 import sys
-# path to the piclim-noresm folder
+# path to the pyclim-noresm folder
 sys.path.insert(1, '~/pyclim-NorESM/pyclim-noresm/')
 from reading_routines_noresm import make_filelist_raw, read_noresm_raw
 import general_util_funcs as guf
