@@ -14,7 +14,7 @@ If you use xarray for plotting, that will work just fine
 
 
 import sys
-# path to the piclim-noresm folder
+# path to the pyclim-noresm folder
 sys.path.insert(1, '~/pyclim-NorESM/pyclim-noresm/')
 from reading_routines_noresm import read_noresm_cmor, Modelinfo
 import general_util_funcs as guf
