@@ -234,12 +234,16 @@ def get_areacello(cmor=True):
     only if pweight / areacello is not provided. Only works for 1deg ocean (CMIP6) as it is now
     '''
     if not cmor:
-        # This path only works on FRAM and BETZY
-        grid = xr.open_dataset('/cluster/shared/noresm/inputdata/ocn/blom/grid/grid_tnx1v4_20170622.nc')
-        pweight = grid.parea*grid.pmask.where(grid.pmask>0)
-        # add latitude and longitude info good to have in case of e.g. regridding
-        pweight = pweight.assign_coords(lat=grid.plat)
-        pweight = pweight.assign_coords(lon=grid.plon)
+        try:
+            # This path only works on FRAM and BETZY
+            grid = xr.open_dataset('/cluster/shared/noresm/inputdata/ocn/blom/grid/grid_tnx1v4_20170622.nc')
+            pweight = grid.parea*grid.pmask.where(grid.pmask>0)
+            # add latitude and longitude info good to have in case of e.g. regridding
+            pweight = pweight.assign_coords(lat=grid.plat)
+            pweight = pweight.assign_coords(lon=grid.plon)
+        except:
+            # on NIRD there is no common place for blom grid files, only to the cmorized files
+            cmor = True
     if cmor:
         # This path only works on NIRD. NS9034 is not mounted in /trd-projects* so impossible to add a general path
         area = xr.open_dataset('/projects/NS9034K/CMIP6/CMIP/NCC/NorESM2-MM/piControl/r1i1p1f1/Ofx/areacello/gn/latest/areacello_Ofx_NorESM2-MM_piControl_r1i1p1f1_gn.nc')
@@ -271,6 +275,9 @@ def sea_ice_ext(ds, pweight = None, cmor = True):
     Sea ice concentration (fice or siconc) is the percent areal coverage of ice within the ocean grid cell. 
     Sea ice extent is the integral sum of the areas of all grid cells with at least 15% ice concentration.
     
+    Please note that is consistent to use the area variable defined on the ocean grid in relation to sea-ice variables, 
+    but you have to ignore the final j-row of e.g. area. So drop the last row with j=385 of area (and ocean output of sea ice) when dealing with the sea ice variables.
+ 
     Parameters
     ----------
     ds : xarray.DaraArray i.e.  ds[var] (var = fice in BLOM)
@@ -284,14 +291,19 @@ def sea_ice_ext(ds, pweight = None, cmor = True):
     ds_out = None
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
+    pweight = pweight.isel(j=slice(0,384))
+    if ds.j.shape[0]==385:
+        ds = ds.isel(j=slice(0,384))
     for monthnr in [3, 9]:
         da = select_month(ds, monthnr)
-        parea = pweight.where(da>=15)
-        SHout = parea.where(pweight.lat <=0).sum(dim=('i','j'))/(1E6*(1000*1000))
+        mask = xr.where(da>=15,1,0)
+        parea = mask*pweight
+        parea = parea.assign_coords(lat=pweight.lat)
+        SHout = 1e-12*(parea.where(parea.lat<=0).sum(dim=('i','j')))
         SHout.attrs['standard_name'] = 'siext_SH_0%i'%monthnr
         SHout.attrs['units'] = '10^6 km^2'
         SHout.attrs['long_name'] = 'southern_hemisphere_sea_ice_extent_month_0%i'%monthnr
-        NHout = parea.where(pweight.lat >=0).sum(dim=('i','j'))/(1E6*(1000*1000))
+        NHout = 1e-12*(parea.where(parea.lat >=0).sum(dim=('i','j')))
         NHout.attrs['standard_name'] = 'siext_NH_0%i'%monthnr
         NHout.attrs['units'] = '10^6 km^2'
         NHout.attrs['long_name'] = 'northern_hemisphere_sea_ice_extent_month_0%i'%monthnr
@@ -321,14 +333,20 @@ def sea_ice_area(ds, pweight = None, cmor = True):
     ds_out = None
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
+    pweight = pweight.isel(j=slice(0,384))
+    if ds.j.shape[0]==385:
+        ds = ds.isel(j=slice(0,384))
     for monthnr in [3, 9]:
         da = select_month(ds, monthnr)
-        parea = (da*pweight).where(da>=15)
-        SHout = parea.where(pweight.lat <=0).sum(dim=('i','j'))/100/(1E6*(1000*1000))
+        mask = xr.where(da>=15,1,0)
+        # convert to fraction
+        parea = 1e-2*da*mask*pweight
+        parea = parea.assign_coords(lat=pweight.lat)
+        SHout = 1e-12*(parea.where(parea.lat <=0).sum(dim=('i','j')))
         SHout.attrs['standard_name'] = 'siarea_SH_0%i'%monthnr
         SHout.attrs['units'] = '10^6 km^2'
         SHout.attrs['long_name'] = 'southern_hemisphere_sea_ice_area_month_0%i'%monthnr
-        NHout = parea.where(pweight.lat >=0).sum(dim=('i','j'))/100/(1E6*(1000*1000))
+        NHout = 1e-12*(parea.where(parea.lat >=0).sum(dim=('i','j')))
         NHout.attrs['standard_name'] = 'siarea_NH_0%i'%monthnr
         NHout.attrs['units'] = '10^6 km^2'
         NHout.attrs['long_name'] = 'northern_hemisphere_sea_ice_area_month_0%i'%monthnr
@@ -438,7 +456,9 @@ def areaavg_ocn(ds, pweight=None, cmor = True):
     Parameters
     ----------
     ds : xarray.DaraArray i.e.  ds[var] 
-    
+    pweight :   xarray.DataArray with area of ocean and land masks as nan. Default is None
+    cmor :      boolean, True for cmorized variables and False for NorESM RAW output. Not so important for 1 deg ocean
+
     Returns
     -------
     ds_out : xarray.DaraArray
@@ -456,17 +476,24 @@ def areaavg_ocn(ds, pweight=None, cmor = True):
 
 def regionalavg_ocn(ds, lat_low=-90, lat_high=90, lon_low=0, lon_high=360, pweight=None, cmor = True):
     ''' 
-    Calculates area averaged values   
+    Calculates area averaged values in a region constrained by lat_low, lat_high, lon_low, lon_high 
+    lat_low must be less than lat_high, and both need to have values in the range (-90,90)
+    lon_low must be less than lon_high, and both need to have values in the range (0,360)
     
     Parameters
     ----------
-    ds : xarray.DaraArray i.e.  ds[var] 
-    
+    ds :        xarray.DaraArray i.e.  ds[var] 
+    lat_low :   int, in range (-90,90). Default is -90
+    lat_high :  int, in range (-90,90). Default is 90
+    lon_low :   int, in range (0, 360). Default is 0
+    lon_high :  int, in range (0, 360). Default is 360
+    pweight :   xarray.DataArray with area of ocean and land masks as nan. Default is None
+    cmor :      boolean, True for cmorized variables and False for NorESM RAW output. Not so important for 1 deg ocean
+
     Returns
     -------
     ds_out : xarray.DaraArray
     '''
-    print(ds)
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
     pweight = mask_region_latlon(pweight, lat_low=lat_low, lat_high=lat_high, lon_low=lon_low, lon_high=lon_high)
@@ -487,7 +514,8 @@ def volumeavg_ocn(ds, dp, pweight=None, cmor = True):
     ----------
     ds : xarray.DaraArray i.e. ds[var] e.g. var = thatao, so, tempn, saltn 
     dp : xarray.DataArray with pressure thinkness
-   
+    cmor :      boolean, True for cmorized variables and False for NorESM RAW output. Not so important for 1 deg ocean
+
     Returns
     -------
     ds_out : xarray.DaraArray
