@@ -264,8 +264,7 @@ def select_month(ds, monthnr):
     Returns
     -------
     ds : xarray.DaraArray with single month values
-    '''
-    
+    '''    
     ds = ds.sel(time = ds.time.dt.month == monthnr)
     return ds
 
@@ -299,11 +298,13 @@ def sea_ice_ext(ds, pweight = None, cmor = True):
         mask = xr.where(da>=15,1,0)
         parea = mask*pweight
         parea = parea.assign_coords(lat=pweight.lat)
-        SHout = 1e-12*(parea.where(parea.lat<=0).sum(dim=('i','j')))
+        parea = parea.where(parea>0)
+        # seems like there is a factor 1e2 off. Expected 1e-12, not 1e-14
+        SHout = 1e-14*(parea.where(parea.lat<=0).sum(dim=('i','j')))
         SHout.attrs['standard_name'] = 'siext_SH_0%i'%monthnr
         SHout.attrs['units'] = '10^6 km^2'
         SHout.attrs['long_name'] = 'southern_hemisphere_sea_ice_extent_month_0%i'%monthnr
-        NHout = 1e-12*(parea.where(parea.lat >=0).sum(dim=('i','j')))
+        NHout = 1e-14*(parea.where(parea.lat >=0).sum(dim=('i','j')))
         NHout.attrs['standard_name'] = 'siext_NH_0%i'%monthnr
         NHout.attrs['units'] = '10^6 km^2'
         NHout.attrs['long_name'] = 'northern_hemisphere_sea_ice_extent_month_0%i'%monthnr
@@ -340,13 +341,15 @@ def sea_ice_area(ds, pweight = None, cmor = True):
         da = select_month(ds, monthnr)
         mask = xr.where(da>=15,1,0)
         # convert to fraction
-        parea = 1e-2*da*mask*pweight
+        parea = mask*(1e-2*da*pweight)
         parea = parea.assign_coords(lat=pweight.lat)
-        SHout = 1e-12*(parea.where(parea.lat <=0).sum(dim=('i','j')))
+        parea = parea.where(parea>0) 
+        # hmmm seems like there is a factor 1e2 off. Expected 1e-12, not 1e-14
+        SHout = 1e-14*(parea.where(parea.lat <=0).sum(dim=('i','j')))
         SHout.attrs['standard_name'] = 'siarea_SH_0%i'%monthnr
         SHout.attrs['units'] = '10^6 km^2'
         SHout.attrs['long_name'] = 'southern_hemisphere_sea_ice_area_month_0%i'%monthnr
-        NHout = 1e-12*(parea.where(parea.lat >=0).sum(dim=('i','j')))
+        NHout = 1e-14*(parea.where(parea.lat >=0).sum(dim=('i','j')))
         NHout.attrs['standard_name'] = 'siarea_NH_0%i'%monthnr
         NHout.attrs['units'] = '10^6 km^2'
         NHout.attrs['long_name'] = 'northern_hemisphere_sea_ice_area_month_0%i'%monthnr

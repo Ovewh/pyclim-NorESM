@@ -110,22 +110,21 @@ def seaice_timeseries(model, varlist, cmor= True,  realm = 'SImon', grid = 'gn')
 
     
 if __name__ == '__main__':
-    cmor = True
-    expid = 'piControl'
-    activity_id = 'CMIP'
-    modelname = 'NorESM2-LM'
-    realiz = 'r1i1p1f1' 
-    outdir =  '/scratch/adagj/noresm_raw/'
+    expid = 'piControl'                     # name of experiment
+    activity_id = 'CMIP'                    # activity id of experiment i.e. which MIP 
+    modelname = 'NorESM2-LM'                # name of model
+    realiz = 'r1i1p1f1'                     # ensemble member 
+    outdir =  '/scratch/adagj/noresm_raw/'  # path to directory where output is stored
 
     # Create model object with experiment information (not file specific) as attributes
-    model = Modelinfo(name = modelname, institute = 'NCC', activity_id = activity_id, expid = expid, realiz=realiz)
+    # for details see Modelinfo in reading_routines_noresm.py
+    model = Modelinfo(name = modelname, activity_id = activity_id, expid = expid, realiz=realiz)
     # ATMOSPHERE timeseries
     varlist = ['rsds', 'rsdscs', 'rsdt', 'rsus', 'rsuscs', 'rsut', 'rsutcs', 
                'rlds', 'rlus', 'rlut', 'rlutcs', 'tas', 'clt', 'hfls', 'hfss', 'ts', 'sfcWind']
     ds_atm = atmos_timeseries(model = model, varlist = varlist)
 
     # OCEAN timeseries
-    #raise Exception('End of work')
     varlist = ['tos', 'sos', 'msftmz','hfbasin', 'thetaoga']
     ds_ocn = ocean_timeseries(model = model, varlist = varlist)
     
@@ -136,10 +135,13 @@ if __name__ == '__main__':
     # combine atmosphere, ocean and sea-ice datasets 
     combined = xr.merge([ds_atm, ds_ocn, ds_ice])
     
-    # test: only compare the first 6 years
+    # test: only use the first 6 years. Remove these two lines for using all years
     combined = combined.isel(year = slice(0,6))
-    combined = combined.isel(time = slice(0,2*6)) 
-    tmp = combined.to_netcdf(outdir + modelname + '_'+ expid + '_' + realiz+ '.%s_%s.timeseries.nc'%(str(combined.year.values[0]).zfill(4), str(combined.year.values[-1]).zfill(4)), compute = False)
+    combined = combined.isel(time = slice(0,2*6))
+    
+    # this is just an example. please change to some filename you find useful 
+    filename = outdir + modelname + '_'+ expid + '_' + realiz+ '.%s_%s.timeseries.nc'%(str(combined.year.values[0]).zfill(4), str(combined.year.values[-1]).zfill(4)) 
+    tmp = combined.to_netcdf(filename, compute = False)
     with ProgressBar():
          result = tmp.compute()
 

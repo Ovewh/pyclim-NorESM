@@ -93,13 +93,14 @@ def ocean_timeseries(expid, path = '/projects/NS9560K/noresm/cases/',  varlist =
 
 
 if __name__ == '__main__':
-    expid = 'N1850_f19_tn14_20190621'
-    path = '/projects/NS9560K/noresm/cases/'
-    outdir = '/scratch/adagj/noresm_raw/'
+    expid = 'N1850_f19_tn14_20190621'          # name of experiment
+    path = '/projects/NS9560K/noresm/cases/'   # path to experiment
+    outdir = '/scratch/adagj/noresm_raw/'      # path to directory where output is stored 
+    
     # if you want all years in the NorESM simulation, you don't need to set start and end year
     # but since this reading script is bloody slow it's a good idea... or drink coffee while waiting
     yrs = 1600 # start year
-    yre = 1601 # end year
+    yre = 1605 # end year
     # if yrs is not given, the first year will be the first year of the simulation
     # if yre is not given, the last year will be the last year of the simulation
     # e.g. ds_atm = atmos_timeseries(expid=expid, path=path, varlist = varlist)
@@ -119,8 +120,9 @@ if __name__ == '__main__':
     # combine atmosphere and ocean datasets 
     combined = xr.merge([ds_atm, ds_ocn])
     
-    # this is just an example. please change to get a filename you find useful.
-    tmp = combined.to_netcdf(outdir + expid + '.%s_%s.timeseries.nc'%(str(combined.year.values[0]).zfill(4), str(combined.year.values[-1]).zfill(4)), compute = False)
+    # this is just an example. please change to something you find useful.
+    filename = outdir + expid + '.%s_%s.timeseries.nc'%(str(combined.year.values[0]).zfill(4), str(combined.year.values[-1]).zfill(4))
+    tmp = combined.to_netcdf(filename, compute = False)
     
     # writing files with progressbar fix most memory issues
     with ProgressBar():
