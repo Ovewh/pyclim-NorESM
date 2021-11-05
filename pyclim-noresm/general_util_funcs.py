@@ -50,6 +50,8 @@ def consistent_naming(ds):
         ds = ds.rename({'nbounds':'bnds'})
     if 'bounds' in ds.dims:
         ds = ds.rename({'bounds':'bnds'})
+    if 'type' in ds.coords:
+        ds = ds.drop('type')
     return ds
 
 
@@ -468,6 +470,9 @@ def areaavg_ocn(ds, pweight=None, cmor = True):
     '''
     if not isinstance(pweight,xr.DataArray):
         pweight = get_areacello(cmor = cmor)
+    # sea-ice variables are on i = 360, j = 384 grids
+    if ds.j.shape[0]==384:
+        pweight = pweight.isel(j=slice(0,384))
     ds_out = ((ds*pweight).sum(dim=("j","i")))/pweight.sum()  
     if 'long_name'  in ds.attrs:
         ds_out.attrs['long_name']= 'Globally averaged ' + ds.long_name

@@ -14,7 +14,7 @@ warnings.simplefilter('ignore')
 import xarray as xr
 xr.set_options(enable_cftimeindex=True)
 
-def fx_files(self, var='areacella', path_to_data = '/projects/NS9252K/ESGF/CMIP6/'):
+def fx_files(self, var='areacella', path_to_data = '/projects/NS9034K/CMIP6/'):
     '''
     '''
     if var in ['areacella', 'orog', 'sftgif', 'sftlf']:
@@ -27,12 +27,8 @@ def fx_files(self, var='areacella', path_to_data = '/projects/NS9252K/ESGF/CMIP6
         self.gridlabel = 'gr'
     else:
         self.gridlabel = 'gn'
-    if self.name in ['NorESM2-LM', 'NorESM2-MM']:
-         ofxpath = path_to_data + '/' + self.activity_id  + '/' + self.institute + '/' + self.name + '/piControl/' + self.realiz + '/' + fx + '/' + var + '/'+ self.gridlabel +'/latest/'
-         self.ofxfile = ofxpath + var + '_' + fx +  '_' + self.name + '_piControl_'+ self.realiz + '_' + self.gridlabel +'.nc'
-    else:
-         ofxpath = path_to_data + '/' + self.activity_id  + '/' + self.institute + '/' + self.name + '/piControl/' + self.realiz + '/' + fx  +'/' + var + '/' + self.gridlabel+ '/latest/'
-         self.ofxfile = ofxpath + var + '_'+ fx+'_' + self.name + '_piControl_' + self.realiz + '_' + self.gridlabel 
+    fxpath = path_to_data + '/' + self.activity_id  + '/' + self.institute + '/' + self.name + '/piControl/' + self.realiz + '/' + fx + '/' + var + '/'+ self.gridlabel +'/latest/'
+    self.fxfile = fxpath + var + '_' + fx +  '_' + self.name + '_piControl_'+ self.realiz + '_' + self.gridlabel +'.nc'
 
 
 def make_filelist_cmor(self, var,  activity_id='CMIP',  realm = 'Amon', grid = 'gn', path_to_data = '/projects/NS9034K/CMIP6/'):
