@@ -13,7 +13,7 @@ If you use xarray for plotting, that works just fine
 """
 import sys
 # path to the pyclim-noresm folder
-sys.path.insert(1, '~/pyclim-NorESM/pyclim-noresm/')
+sys.path.insert(1, '/nird/home/adagj/pyclim-NorESM/pyclim-noresm/')
 from reading_routines_noresm import make_filelist_raw, read_noresm_raw
 import general_util_funcs as guf
 import xarray as xr
@@ -93,38 +93,44 @@ def ocean_timeseries(expid, path = '/projects/NS9560K/noresm/cases/',  varlist =
 
 
 if __name__ == '__main__':
-    expid = 'N1850_f19_tn14_20190621'          # name of experiment
-    path = '/projects/NS9560K/noresm/cases/'   # path to experiment
-    outdir = '/scratch/adagj/noresm_raw/'      # path to directory where output is stored 
+    #expid = 'N1850_f19_tn14_20190621'          # name of experiment
+    #path = '/projects/NS9560K/noresm/cases/'   # path to experiment
+    #outdir = '/scratch/adagj/noresm_raw/'      # path to directory where output is stored 
     
     # if you want all years in the NorESM simulation, you don't need to set start and end year
     # but since this reading script is bloody slow it's a good idea... or drink coffee while waiting
-    yrs = 1600 # start year
-    yre = 1605 # end year
+    #yrs = 1600 # start year
+    #yre = 1605 # end year
     # if yrs is not given, the first year will be the first year of the simulation
     # if yre is not given, the last year will be the last year of the simulation
     # e.g. ds_atm = atmos_timeseries(expid=expid, path=path, varlist = varlist)
     # e.g. ds_ocn = ocean_timeseries(expid = expid, path = path,  varlist = varlist)
-
-    # ATMOSPHERE
-    varlist = ['FSNT', 'FSNTC', 'FLNT','FLNTC', 'FSNS','FSNSC','FLNS','FLNSC','FLUT','FLUTC', 'FSNTOA','FSNTOAC',
+    #expids = ['n.n202.N1850frc2.f09_tn14.pi_control.001_global','n.n202.NHISTfrc2.f09_tn14.historical.001_global', 'n.n202.NSSP585frc2.f09_tn14.ssp585.001_global']          # name of experiment
+    expids=['N1850_piControl_snow_KeyClim']
+    path = '/projects/NS9252K/noresm/cases/'   # WP4_shofer/'  path to experiment
+    outdir = '/scratch/adagj/noresm_raw/'      # path to direct
+    yrs = 1850
+    yre = 1900
+    for expid in expids:
+        # ATMOSPHERE
+        print(expid)
+        varlist = ['FSNT', 'FSNTC', 'FLNT','FLNTC', 'FSNS','FSNSC','FLNS','FLNSC','FLUT','FLUTC', 'FSNTOA','FSNTOAC',
                 'FLDS' , 'FSDS','FSDSC', 'AODVVOLC', 'AOD_VIS', 'CAODVIS','QREFHT',
                 'SWCF','LWCF','TREFHT','CLDFREE', 'CLDTOT', 'CLDHGH', 'CLDLOW', 'CLDMED', 'LHFLX', 'SHFLX', 'TS', 'U10']
-    ds_atm = atmos_timeseries(expid=expid, path=path, varlist = varlist, yrs= yrs, yre = yre)
-    
-    # OCEAN AND SEA ICE
-    varlist = ['dp','sst','sss','mmflxd', 'mhflx', 'fice', 'temp', 'saln', 'tempga', 'salnga', 'sssga', 'sstga']
-    ds_ocn = ocean_timeseries(expid = expid, path = path,  varlist = varlist, yrs=yrs, yre = yre)
+        ds_atm = atmos_timeseries(expid=expid, path=path, varlist = varlist, yrs= yrs, yre = yre)        
+        # OCEAN AND SEA ICE
+        #varlist = ['dp','sst','sss','mmflxd', 'mhflx', 'fice', 'temp', 'saln', 'tempga', 'salnga', 'sssga', 'sstga']
+        #ds_ocn = ocean_timeseries(expid = expid, path = path,  varlist = varlist, yrs=yrs, yre = yre)
 
 
-    # combine atmosphere and ocean datasets 
-    combined = xr.merge([ds_atm, ds_ocn])
+        # combine atmosphere and ocean datasets 
+        #combined = xr.merge([ds_atm, ds_ocn])
+        combined = ds_atm
+        # this is just an example. please change to something you find useful.
+        filename = outdir + expid + '.%s_%s.timeseries.nc'%(str(combined.year.values[0]).zfill(4), str(combined.year.values[-1]).zfill(4))
+        tmp = combined.to_netcdf(filename, compute = False)
     
-    # this is just an example. please change to something you find useful.
-    filename = outdir + expid + '.%s_%s.timeseries.nc'%(str(combined.year.values[0]).zfill(4), str(combined.year.values[-1]).zfill(4))
-    tmp = combined.to_netcdf(filename, compute = False)
-    
-    # writing files with progressbar fix most memory issues
-    with ProgressBar():
-         result = tmp.compute()
+        # writing files with progressbar fix most memory issues
+        with ProgressBar():
+            result = tmp.compute()
 

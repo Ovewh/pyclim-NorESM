@@ -177,6 +177,7 @@ def make_filelist_raw(expid, path='/projects/NS9560K/noresm/cases/', component='
     if component in ['seaice']:
         fnames = '%s/ice/hist/%s.cice.h.*.nc'%(expid, expid)
     fnames = sorted(glob.glob(path + fnames))
+    print('\n IN MAKE FILELIST RAW')
     if yrs or yre:
         # all simulated years in experiment
         allyears = [int(fnames[i].split('/')[-1].split('.')[-2].split('-')[0].lstrip('0')) for i in range(0,len(fnames))]
@@ -196,6 +197,7 @@ def make_filelist_raw(expid, path='/projects/NS9560K/noresm/cases/', component='
             if int(fnames[i].split('/')[-1].split('.')[-2].split('-')[0].lstrip('0'))!=int(fnames[i-12].split('/')[-1].split('.')[-2].split('-')[0].lstrip('0'))+1:
                 print(fnames)
                 raise Exception('NOTE! The files are not in consecutive order. Please check directory')
+    print(fnames)
     return fnames
 
 def read_noresm_raw(fnames, dim='time', transform_func=None):

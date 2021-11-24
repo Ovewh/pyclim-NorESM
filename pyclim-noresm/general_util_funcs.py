@@ -160,8 +160,10 @@ def seasonal_avg_timeseries(ds, var=''):
     jja = sesavg[2::4].to_dataset(name = var +'_JJA').rename({'time':'time_JJA'})
     son = sesavg[3::4].to_dataset(name = var +'_SON').rename({'time':'time_SON'})
     ds_out = xr.merge([djf, mam, jja, son])
-    ds_out.attrs['long_name']= 'Seasonal mean ' + ds.long_name
-    ds_out.attrs['units']=ds.units
+    if 'long_name'  in ds.attrs:
+        ds_out.attrs['long_name']= 'Seasonal mean ' + ds.long_name
+    if 'units' in ds.attrs:
+        ds_out.attrs['units']=ds.units
     if 'standard_name'  in ds.attrs:
         ds_out.attrs['standard_name']=ds.standard_name
     return ds_out
@@ -187,8 +189,10 @@ def seasonal_avg(ds):
     np.testing.assert_allclose(weights.groupby('time.season').sum().values, np.ones(4))
     # Calculate the weighted average
     ds_weighted = (ds * weights).groupby('time.season').sum(dim='time')
-    ds_weighted.attrs['long_name']= 'Seasonal mean ' + ds.long_name
-    ds_weighted.attrs['units']=ds.units
+    if 'long_name'  in ds.attrs:
+        ds_weighted.attrs['long_name']= 'Seasonal mean ' + ds.long_name
+    if 'units' in ds.attrs:
+        ds_weighted.attrs['units']=ds.units
     if 'standard_name'  in ds.attrs:
         ds_weighted.attrs['standard_name']=ds.standard_name
     return ds_weighted
