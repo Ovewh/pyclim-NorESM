@@ -21,7 +21,7 @@ It is useful to reduce the data by either
 
 import sys
 # path to the pyclim-noresm folder. Please change to something more meaningful it this doesn't work out 
-sys.path.insert(1, '/nird/home/adagj/pyclim-NorESM/pyclim-noresm/')
+sys.path.insert(1, '~/pyclim-NorESM/pyclim-noresm/')
 from reading_routines_noresm import read_noresm_cmor, Modelinfo
 import general_util_funcs as guf
 import atmospheric_transport_functions as atf
@@ -273,7 +273,7 @@ if __name__ == '__main__':
     # read files. Please note, if you don't limit the number of years you probably will run into memory trouble
     yr1 = 2000
     yr2 = 2014
-    ds_atm = atmos_dataset(model, yr1=2000, yr2=2014)
+    ds_atm = atmos_dataset(model, yr1=yr1, yr2=yr2)
     lat_lim = 66
     
     # These are just examples, and please just comment out what you don't need
