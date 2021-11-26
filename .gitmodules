@@ -1,0 +1,3 @@
+[submodule "pyclim-adagj"]
+	path = pyclim-adagj
+	url = https://github.com/adagj/pyclim-adagj.git
