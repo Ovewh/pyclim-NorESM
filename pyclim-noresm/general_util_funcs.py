@@ -100,6 +100,40 @@ def fix_cam_time(ds):
     dates = [DatetimeNoLeap(year, month, 15) for year, month in zip(years, months) ]
     ds = ds.assign_coords(time = dates)
     return ds
+
+def fix_time(ds, yr0=1850):
+    """
+    If there are problems with the calender used in the cmorized files (e.g. GFDL-ESM4)
+    This function will overwrite the time array such that (all) other functions can be used
+    Not needed for NorESM analysis in general, but e.g. in feedback analysis both kernels and
+    model dataset need to use the same time  
+    
+    """
+    from itertools import product
+    from cftime import DatetimeNoLeap
+    yr = np.int(ds.time.shape[0]/12)
+    yr1 = yr + yr0
+    dates = [DatetimeNoLeap(year, month, 16) for year, month in
+             product(range(yr0, yr1), range(1, 13)) ]
+    bounds_a = [DatetimeNoLeap(year, month, 1) for year, month in
+             product(range(yr0, yr1), range(1, 13)) ]
+    bounds_b = bounds_a[1:]
+    bounds_b.append(DatetimeNoLeap(yr1, 1, 1))
+    bounds = np.reshape(np.concatenate([bounds_a, bounds_b]),[ds.time.shape[0], 2])
+    ds = ds.assign_coords(time = dates)
+    # set attributes
+    ds['time'].attrs['bounds'] = 'time_bnds'
+    ds['time'].attrs['axis'] = 'T'
+    ds['time'].attrs['long_name']= 'time'
+    ds['time'].attrs['standard_name']='time'
+    #ds['time'].attrs['cell_methods'] = 'time: mean'
+    ds['time'].attrs['calendar']='noleap'
+    ds['time'].attrs['units']='days since %04d-01-16 00:00'%yr0
+    ds['time_bnds'] = xr.DataArray(bounds, dims=('time','bnds'))
+    ds['time_bnds'].attrs['axis'] = 'T'
+    ds['time_bnds'].attrs['long_name']= 'time bounds'
+    ds['time_bnds'].attrs['standard_name']='time_bnds'
+    return ds
    
 def yearly_avg(ds):
     ''' Calculates timeseries over yearly averages from timeseries of monthly means

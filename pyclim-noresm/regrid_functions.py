@@ -77,7 +77,7 @@ def make_bounds_ocean(ds, seaice=False):
         except:
             # This path only works on FRAM and BETZY
             grid = xr.open_dataset('/cluster/shared/noresm/inputdata/ocn/blom/grid/grid_tnx1v4_20170622.nc')
-            return noresm_bounds_seice(grid)
+            return noresm_bounds_seaice(grid)
         # if sea ice variables are regridded and areacello or the ocean grid is used for setting the grid
         # ny = ny - 1, but if the sea ice grid is used, then ny = ny
         # drop the last row with j=385 of area when dealing with the sea ice variables.
@@ -229,24 +229,21 @@ def regrid_file(ds,var, outgrid, grid_weight_path, regrid_mode = 'conservative',
     ----------
     ds :                 xarray.DataSet, with model grid information for the data which need to be regridded 
     var :                str, name of varible
-    outgrid :            xarray.DataSet, with output grid information which the data will be regridded to
-    regrid_mode :        str, 'bilinear', 'conservative', 'patch', 'nearest_s2d', 'nearest_d2s'
-    grid_weight_path :   str, path to where the  regridder weight file will be stored
-    curvilinear :         bool, True for ocean and se-ice variables. False for atmosphere
-    seaice :             bool, set True for sea-ice variables and False for ocean variables (different grid size)
-    reuse_weights :      bool, set to True to read existing weights from disk.
-                               set to False if new weights need to be calculated
+    outgrid :            xarray.DataSet, with output grid information which tif 'plev' in ds[var].dims:
+                glb_mean = guf.global_avg(ds[var].isel(plev=-1).isel(time=0))ted
                            
     Returns
     -------
-    dr : xarray.DataArray with regridded variable data and lon from 0-360
+    dr : xarray.Dataset with regridded variable data and lon from 0-360
     '''
     regridder = make_regridder(ds, outgrid, grid_weight_path, regrid_mode, curvilinear, seaice, reuse_weights)
     dr = regridder(ds[var]) # needs DataArray
     dr = dr.rename({'x':'lon','y':'lat'})
     dr = dr.to_dataset(name = var) 
-    dr[var].attrs['long_name']=ds[var].long_name
-    dr[var].attrs['units']=ds[var].units
+    if 'long_name'  in ds[var].attrs:
+        dr[var].attrs['long_name']=ds[var].long_name
+    if 'units'  in ds[var].attrs:
+        dr[var].attrs['units']=ds[var].units
     if 'standard_name'  in ds[var].attrs:
         dr[var].attrs['standard_name']=ds[var].standard_name
     print('Regridding completed')
@@ -262,16 +259,24 @@ def regrid_file(ds,var, outgrid, grid_weight_path, regrid_mode = 'conservative',
         else:
             if 'plev' in ds[var].dims:
                 glb_mean = guf.global_avg(ds[var].isel(plev=-1).isel(time=0))
+            elif 'lev' in ds[var].dims:
+                glb_mean = guf.global_avg(ds[var].isel(lev=0).isel(time=0))
             else:
                 glb_mean = guf.global_avg(ds[var].isel(time=0))
-        print('Global mean value BEFORE regridding, first timestep and close to the surface:%f %s'%(np.round(glb_mean.values,4), ds[var].units))
+        if 'units'  in ds[var].attrs:
+             print('%s : global mean value BEFORE regridding, first timestep:%f %s'%(var, np.round(glb_mean.values,4), ds[var].units))
+        else:
+             print('%s : global mean value BEFORE regridding, first timestep:%f'%(var, np.round(glb_mean.values,4)))
         if 'plev' in dr.dims:
             glb_mean = guf.global_avg(dr[var].isel(plev=-1).isel(time=0))
         elif 'lev' in dr.dims:
             glb_mean = guf.global_avg(dr[var].isel(lev=0).isel(time=0))
         else:
             glb_mean = guf.global_avg(dr[var].isel(time=0))
-        print('Global mean value AFTER regridding, first timestep and close to the surface:%f %s'%(np.round(glb_mean.values,4),dr[var].units))
+        if 'units'  in dr[var].attrs:
+            print('%s : global mean value AFTER regridding, first timestep:%f %s'%(var, np.round(glb_mean.values,4),dr[var].units))
+        else:
+            print('%s : global mean value AFTER regridding, first timestep:%f'%(var, np.round(glb_mean.values,4)))
     except:
         print('Routine for writing global mean values before and after regridding failed in the regrid_file function in regrid_functions.py!\n Maybe some dimensions are not accounted for? Please check!')
     return dr
