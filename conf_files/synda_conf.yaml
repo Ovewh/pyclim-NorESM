@@ -1,0 +1,13 @@
+# Settings for the Synda selection files
+
+table_id: 
+  - Amon
+  - AERmonZ
+  - CFmon
+  - Emon
+  - SImon
+  - EmonZ
+  - AERmon
+
+latest: 'true'
+
