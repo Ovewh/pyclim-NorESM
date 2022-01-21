@@ -4,7 +4,7 @@ Python scripts used for analysis and plotting output from the Norwegian Earth Sy
 
 ## Structure
 
-- **pyclim-noresm**: folder which contains functions for reading and analyzing NorESM output
+- **pyclim_noresm**: folder which contains functions for reading and analyzing NorESM output
 - **examples**: folder with example scripts to show how the function scripts in **pyclim-noresm** can be used
 
 ## What can you find
@@ -17,12 +17,21 @@ Python scripts used for analysis and plotting output from the Norwegian Earth Sy
 
 - For the regridding package xesmf to work properly, you need to make a new conda environment before installing the packages:
 
+### Installation
+
+1. Clone the git repository and cd into the pyclim-NorESM directory:
 ```
-  (base)$ conda create -n xesmf_env
-  (base)$ conda activate xesmf_env
-  (xesmf_env)$ conda install -c anaconda xarray
-  (xesmf_env)$ conda install -c conda-forge esmpy scipy dask netCDF4
-  (xesmf_env)$ conda install -c conda-forge xesmf
+git clone https://github.com/adagj/pyclim-NorESM.git && cd pyclim-NorESM
+
 ```
 
+2. Install the conda enviroment
+```
+conda env create -f=environment.yaml
+```
+3. Install pyclim_noresm using pip (use -e for development):
+
+```
+pip install -e . 
+```
 
