@@ -155,8 +155,10 @@ def calc_SW_ERF(experiment_downwelling: xarray.DataArray,
     
     return erf
 
-def calc_atm_abs(delta_rad_surf: xarray.DataArray], 
-                delta_rad_toa : xarray.DataArray]):
+
+
+def calc_atm_abs(delta_rad_surf: xarray.DataArray, 
+                delta_rad_toa : xarray.DataArray):
     """
     Calculates the atmospheric absorption as the difference between 
     the radiative imbalance at the top of the atmosphere and the surface. 
@@ -168,31 +170,31 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray],
         'ERFtswcs' : 'ERFsurfswcs'
 
     }
-
-    if isinstance(delta_rad_surf, xarray.DataArray):
-        variable_surf = delta_rad_surf.name
-    else:
-        variable_surf = delta_rad_surf['variable_name']
-        delta_rad_surf = delta_rad_surf['variable_name']
-
-    if isinstance(delta_rad_toa, xarray.DataArray):
-        variable_toa = delta_rad_toa.name
-    else:
-        variable_toa = delta_rad_toa['variable_name']
-        delta_rad_toa = delta_rad_toa['variable_name']
-
+    variable_toa = delta_rad_toa.name
+    variable_surf = delta_rad_surf.name
+    units = delta_rad_toa.units
     if varialbe_pairs[variable_toa] != variable_surf:
         raise ValueError(f'The combination {variable_toa} and {variable_surf} is invalid')
 
     attrs = {
         'ERFtsw': 
-            {'variable_name':'AtmabsSW',
-            'long_name':'Short wave atmospheric absorption', 
-            'units': delta_rad_toa.uni
-
+            {'variable_name':'atmabsSW',
+            'long_name':'Atmospheric absorbtion of short wave radiation.', 
+            'units': units
+            },
+        'ERFtswcs': 
+            {'variable_name':'atmabsSWcs',
+            'long_name':'Clear sky atmospheric absorbtion of short wave radiation.',
+            'units': units    
+            
             }
+        
 
     }
 
 
     atm_abs = delta_rad_toa - delta_rad_surf
+    atm_abs = atm_abs.rename(attrs[variable_toa]['variable_name'])
+    atm_abs.attrs = {**atm_abs.attrs,**attrs}
+
+    return atm_abs
