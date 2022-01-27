@@ -68,60 +68,27 @@ def _check_consitancy_exp_control(experiment, control):
     
     Parameters
     ----------
-        experiment:   xarray.Dataset, xarray.DataArray
+        experiment:   xarray.DataArray
                         Model output from the experiment simulation
-        control:      xarray.Dataset,xarray.DataArray
+        control:      xarray.DataArray
                         Model output from the control simulation
-        
-    Return
-    ------
-        da_exp:     xarray.DataArray
-                        Model output from the experiment simulation (checked that it is consitent with control)
-        da_control  xarray.Dataset
-                        Model output from the control simulation (checked that it is consitent with experiment)
 
     """
-    is_exp_ds, is_exp_da, is_cont_ds, is_cont_da = [isinstance(experiment, xr.Dataset), isinstance(experiment, xr.Dataset),
-                                                    isinstance(control, xr.Dataset), isinstance(control, xr.DataArray)]
+    is_exp_da, is_cont_da = [isinstance(experiment, xr.DataArray), isinstance(control, xr.DataArray)]
 
-
-    if is_exp_ds and is_cont_ds:
-        varialbe = experiment.variable_id
-        if varialbe != control.variable_id:
-            raise ValueError("Experiment and control dataset need to be of the same variables")
-        da_exp = experiment[varialbe]
-        da_cont = experiment[varialbe]
-    elif is_exp_da and is_cont_ds or is_exp_ds and is_cont_da:
-        if is_exp_ds:
-            varialbe = experiment.variable_id
-            da_exp = experiment[varialbe]
-        else:
-            varialbe = experiment.name
-            da_exp = experiment
-        if is_cont_ds:
-            varialbe_cont_varialbe = control.variable_id
-            da_cont = control[varialbe]
-        else:
-            varialbe_cont_varialbe = control.name
-            da_cont = control
-        if varialbe != varialbe_cont_varialbe:
-            raise ValueError("Experiment and control dataset need to be of the same variables")
-    elif is_exp_da and is_cont_da:
+    if is_exp_da and is_cont_da:
         varialbe = experiment.name
         if varialbe != control.name:
-            raise ValueError("Experiment and control dataset need to be of the same variables")
-        da_cont = control
-        da_exp = control
+            raise AssertionError("Experiment and control dataset need to be of the same variables")
+
     else:
-        raise ValueError("Control and experiment have to be of type xarray.Dataset or xarray.DataArray")
+        raise AssertionError("Control and experiment have to be xarray.DataArray objects")
     
-    return da_exp, da_cont, varialbe
 
-
-def calc_SW_ERF(experiment_downwelling: Union[xarray.Dataset,xarray.DataArray], 
-                  experiment_upwelling: Union[xarray.Dataset,xarray.DataArray],
-                  control_downwelling: Union[xarray.Dataset,xarray.DataArray], 
-                  control_upwelling: Union[xarray.Dataset,xarray.DataArray], 
+def calc_SW_ERF(experiment_downwelling: xarray.DataArray, 
+                  experiment_upwelling: xarray.DataArray,
+                  control_downwelling: xarray.DataArray, 
+                  control_upwelling: xarray.DataArray, 
                 ) -> xarray.DataArray:
     """
     Calculates SW ERF (direct aerosol focing) at surface or top of the atmosphere,
@@ -130,13 +97,13 @@ def calc_SW_ERF(experiment_downwelling: Union[xarray.Dataset,xarray.DataArray],
 
     Parameters
     ----------
-        experiment_downwelling: Union[xarray.Dataset,xarray.DataArray]
+        experiment_downwelling: xarray.DataArray
                                     The downwelling variable in the ERF calculation from the experiment. 
-        experiment_upwelling:   Union[xarray.Dataset,xarray.DataArray]
+        experiment_upwelling:   xarray.DataArray
                                     The upwelling variable in the ERF calculation from the experiment.
-        control_downwelling:    Union[xarray.Dataset,xarray.DataArray] 
+        control_downwelling:    xarray.DataArray 
                                     The downwelling variable in the ERF calculation from the control.
-        control_upwelling:      Union[xarray.Dataset,xarray.DataArray]
+        control_upwelling:      xarray.DataArray
                                     The upwelling variable in the ERF calculation from the control.
     Return
     ------
@@ -146,47 +113,50 @@ def calc_SW_ERF(experiment_downwelling: Union[xarray.Dataset,xarray.DataArray],
 
     
     """
-    exp_down,control_down,varialbe_down = _check_consitancy_exp_control(experiment_downwelling, control_downwelling)
-    exp_up, control_up, varialbe_up = _check_consitancy_exp_control(experiment_upwelling, control_upwelling)
+    _check_consitancy_exp_control(experiment_downwelling, control_downwelling)
+    _check_consitancy_exp_control(experiment_upwelling, control_upwelling)
     # Make sure that downwelling varialbe is paired with correst upwelling varialbe
     down_up_var_pairs = {'rsut':'rsdt',
                         'rsus':'rsds',
                         'rsuscs':'rsdscs',
                         'rsutcs':'rsdt'
                         }
-    if down_up_var_pairs[varialbe_down] != varialbe_up:
-        raise ValueError(f'The combination {varialbe_down} and {varialbe_up} is invalid')
+    variable_down = experiment_downwelling.name
+    variable_up = experiment_upwelling.name
+    units = experiment_upwelling.units    
+    if down_up_var_pairs[variable_down] != variable_up:
+        raise ValueError(f'The combination {variable_down} and {variable_up} is invalid')
                             
 
     attrs = {'rsut': 
                 {'varialbe_name': 'ERFtsw',
                 'long_name':'Effective radiative forcing short wave at the top of the atmosphere', 
-                'units': exp_down.units},
+                'units': units},
             'rsus': 
                 {'variable_name': 'ERFsurfsw',
                 'long_name':'Effective radiative forcing short wave at the surface', 
-                'units': exp_down.units},
+                'units': units},
             'rsuscs':
                 {'variable_name':'ERFsurfswcs',
                 'long_name':'Effective clear sky radiative forcing short wave at the surface', 
-                'units': exp_down.units},
+                'units': units},
             'rsutcs':
                 {'varialbe_name': 'ERFtswcs',
                 'long_name':'Effective clear sky radiative forcing short wave at the top of the atmosphere', 
-                'units': exp_down.units}
+                'units': units}
     
             }
             
             
 
-    erf = (np.abs(exp_down) - np.abs(exp_up))-(np.abs(control_down)-np.abs(control_up))
-    erf = erf.rename(attrs[varialbe_down]['variable_name'])
-    erf.attrs = attrs[varialbe_down]
+    erf = (np.abs(experiment_downwelling) - np.abs(experiment_upwelling))-(np.abs(control_downwelling)-np.abs(control_upwelling))
+    erf = erf.rename(attrs[variable_down]['variable_name'])
+    erf.attrs = attrs[variable_down]
     
     return erf
 
-def calc_atm_abs(delta_rad_surf: Union[xarray.Dataset,xarray.DataArray], 
-                delta_rad_toa : Union[xarray.Dataset,xarray.DataArray]):
+def calc_atm_abs(delta_rad_surf: xarray.DataArray], 
+                delta_rad_toa : xarray.DataArray]):
     """
     Calculates the atmospheric absorption as the difference between 
     the radiative imbalance at the top of the atmosphere and the surface. 
