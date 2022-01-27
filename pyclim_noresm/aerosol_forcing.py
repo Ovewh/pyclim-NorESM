@@ -1,19 +1,22 @@
+from typing import Optional
 import xarray as xr
 import xarray
 import numpy as np
 from .general_util_funcs import global_avg
-from typing import Union
 
 
 # Should I use xarray.dataset_accessor???
 
-def merge_exp_ctrl(ds_control : xarray.Dataset,
-                 ds_experiment : xarray.Dataset,
-                 model_broadcast_equals=True,
-                 varialbe_broadcast_equals=True) -> xarray.Dataset:
+
+def merge_exp_ctrl(
+    ds_control: xarray.Dataset,
+    ds_experiment: xarray.Dataset,
+    model_broadcast_equals=True,
+    varialbe_broadcast_equals=True,
+) -> xarray.Dataset:
     """
-    Merge a control and experiment CMIP6 into one dataset and makes 
-    dimmensions and coordinates consistent between the control and 
+    Merge a control and experiment CMIP6 into one dataset and makes
+    dimmensions and coordinates consistent between the control and
     experiment runs
 
     Parameters
@@ -25,47 +28,60 @@ def merge_exp_ctrl(ds_control : xarray.Dataset,
         model_broadcast_equals: bool, default= True
                             Control and experiment have to be of the same model
         varialbe_broadcast_equals: bool, default=True
-                            Control and experiment have be of the same varialbe 
+                            Control and experiment have be of the same varialbe
 
     Return
     ------
         Merged Dataset containing both experiment and control simulation.
-    
+
     """
 
-
     if ds_control.source_id != ds_experiment.source_id and model_broadcast_equals:
-        raise AssertionError("""The control and experiment are not from the same source model""")
-    if ds_control.variable_id != ds_experiment.variable_id and varialbe_broadcast_equals:
-        raise AssertionError("""Control and experiment have to be of the same varialbe""")
+        raise AssertionError(
+            """The control and experiment are not from the same source model"""
+        )
+    if (
+        ds_control.variable_id != ds_experiment.variable_id
+        and varialbe_broadcast_equals
+    ):
+        raise AssertionError(
+            """Control and experiment have to be of the same varialbe"""
+        )
 
     ctrl_lat_bnds, ctrl_lon_bnds = ds_control.lat_bnds, ds_control.lon_bnds
     exp_lat_bnds, exp_lon_bnds = ds_experiment.lat_bnds, ds_experiment.lon_bnds
     # Check if the lon lat bnds are equal between control and experiment
     np.testing.assert_allclose(ctrl_lat_bnds, exp_lat_bnds, atol=1e-4)
     np.testing.assert_allclose(ctrl_lon_bnds, exp_lon_bnds, atol=1e-4)
-    np.testing.assert_allclose(ds_control.lon,ds_experiment.lon,atol=1e-4)
-    np.testing.assert_allclose(ds_control.lat, ds_experiment.lat,atol=1e-4)
+    np.testing.assert_allclose(ds_control.lon, ds_experiment.lon, atol=1e-4)
+    np.testing.assert_allclose(ds_control.lat, ds_experiment.lat, atol=1e-4)
 
-    ds_control = ds_control.reindex({'lon':ds_experiment.lon,'lat':ds_experiment.lat}, method='nearest')
-    ds_control = ds_control.assign({'lon_bnds':ds_experiment.lon_bnds, 
-                                    'lat_bnds':ds_experiment.lat_bnds})
+    ds_control = ds_control.reindex(
+        {"lon": ds_experiment.lon, "lat": ds_experiment.lat}, method="nearest"
+    )
+    ds_control = ds_control.assign(
+        {"lon_bnds": ds_experiment.lon_bnds, "lat_bnds": ds_experiment.lat_bnds}
+    )
 
-    ds_control = ds_control.rename({ds_control['variable_id']: 'control_{}'.format(ds_control['variable_id'])})
+    ds_control = ds_control.rename(
+        {ds_control["variable_id"]: "control_{}".format(ds_control["variable_id"])}
+    )
 
-    ds = xr.merge([ds_experiment,ds_control], compat='broadcast_equals', 
-                    combine_attrs='drop_conflicts')
+    ds = xr.merge(
+        [ds_experiment, ds_control],
+        compat="broadcast_equals",
+        combine_attrs="drop_conflicts",
+    )
 
     return ds
-    
 
 
 def _check_consitancy_exp_control(experiment, control):
     """
-    Checks if variables in the experiment and control simulations are the same 
-    and that the typing is consititent. If the experiment and control are provided as 
-    xarray.datasets it is returned as xarray.datasets 
-    
+    Checks if variables in the experiment and control simulations are the same
+    and that the typing is consititent. If the experiment and control are provided as
+    xarray.datasets it is returned as xarray.datasets
+
     Parameters
     ----------
         experiment:   xarray.DataArray
@@ -74,22 +90,30 @@ def _check_consitancy_exp_control(experiment, control):
                         Model output from the control simulation
 
     """
-    is_exp_da, is_cont_da = [isinstance(experiment, xr.DataArray), isinstance(control, xr.DataArray)]
+    is_exp_da, is_cont_da = [
+        isinstance(experiment, xr.DataArray),
+        isinstance(control, xr.DataArray),
+    ]
 
     if is_exp_da and is_cont_da:
         varialbe = experiment.name
         if varialbe != control.name:
-            raise AssertionError("Experiment and control dataset need to be of the same variables")
+            raise AssertionError(
+                "Experiment and control dataset need to be of the same variables"
+            )
 
     else:
-        raise AssertionError("Control and experiment have to be xarray.DataArray objects")
-    
+        raise AssertionError(
+            "Control and experiment have to be xarray.DataArray objects"
+        )
 
-def calc_SW_ERF(experiment_downwelling: xarray.DataArray, 
-                  experiment_upwelling: xarray.DataArray,
-                  control_downwelling: xarray.DataArray, 
-                  control_upwelling: xarray.DataArray, 
-                ) -> xarray.DataArray:
+
+def calc_SW_ERF(
+    experiment_downwelling: xarray.DataArray,
+    experiment_upwelling: xarray.DataArray,
+    ctrl_downwelling: xarray.DataArray,
+    ctrl_upwelling: xarray.DataArray,
+) -> xarray.DataArray:
     """
     Calculates SW ERF (direct aerosol focing) at surface or top of the atmosphere,
     depending on the provided input variables. Also makes sure that the calculated
@@ -98,103 +122,205 @@ def calc_SW_ERF(experiment_downwelling: xarray.DataArray,
     Parameters
     ----------
         experiment_downwelling: xarray.DataArray
-                                    The downwelling variable in the ERF calculation from the experiment. 
+                                    The downwelling variable in the ERF calculation from the experiment.
         experiment_upwelling:   xarray.DataArray
                                     The upwelling variable in the ERF calculation from the experiment.
-        control_downwelling:    xarray.DataArray 
+        ctrl_downwelling:    xarray.DataArray
                                     The downwelling variable in the ERF calculation from the control.
-        control_upwelling:      xarray.DataArray
+        ctrl_upwelling:      xarray.DataArray
                                     The upwelling variable in the ERF calculation from the control.
     Return
     ------
         erf: xarray.DataArray
-                Calculated erf that is consitent with input data. The return DataArray includes new 
+                Calculated erf that is consitent with input data. The return DataArray includes new
                 metadata.
 
-    
+
     """
-    _check_consitancy_exp_control(experiment_downwelling, control_downwelling)
-    _check_consitancy_exp_control(experiment_upwelling, control_upwelling)
+    _check_consitancy_exp_control(experiment_downwelling, ctrl_downwelling)
+    _check_consitancy_exp_control(experiment_upwelling, ctrl_upwelling)
     # Make sure that downwelling varialbe is paired with correst upwelling varialbe
-    down_up_var_pairs = {'rsut':'rsdt',
-                        'rsus':'rsds',
-                        'rsuscs':'rsdscs',
-                        'rsutcs':'rsdt'
-                        }
+    down_up_var_pairs = {
+        "rsut": "rsdt",
+        "rsus": "rsds",
+        "rsuscs": "rsdscs",
+        "rsutcs": "rsdt",
+    }
     variable_down = experiment_downwelling.name
     variable_up = experiment_upwelling.name
-    units = experiment_upwelling.units    
+    units = experiment_upwelling.units
     if down_up_var_pairs[variable_down] != variable_up:
-        raise ValueError(f'The combination {variable_down} and {variable_up} is invalid')
-                            
+        raise ValueError(
+            f"The combination {variable_down} and {variable_up} is invalid"
+        )
 
-    attrs = {'rsut': 
-                {'varialbe_name': 'ERFtsw',
-                'long_name':'Effective radiative forcing short wave at the top of the atmosphere', 
-                'units': units},
-            'rsus': 
-                {'variable_name': 'ERFsurfsw',
-                'long_name':'Effective radiative forcing short wave at the surface', 
-                'units': units},
-            'rsuscs':
-                {'variable_name':'ERFsurfswcs',
-                'long_name':'Effective clear sky radiative forcing short wave at the surface', 
-                'units': units},
-            'rsutcs':
-                {'varialbe_name': 'ERFtswcs',
-                'long_name':'Effective clear sky radiative forcing short wave at the top of the atmosphere', 
-                'units': units}
-    
-            }
-            
-            
+    attrs = {
+        "rsut": {
+            "varialbe_name": "ERFtsw",
+            "long_name": "Effective radiative forcing short wave at the top of the atmosphere",
+            "units": units,
+        },
+        "rsus": {
+            "variable_name": "ERFsurfsw",
+            "long_name": "Effective radiative forcing short wave at the surface",
+            "units": units,
+        },
+        "rsuscs": {
+            "variable_name": "ERFsurfswcs",
+            "long_name": "Effective clear sky radiative forcing short wave at the surface",
+            "units": units,
+        },
+        "rsutcs": {
+            "varialbe_name": "ERFtswcs",
+            "long_name": "Effective clear sky radiative forcing short wave at the top of the atmosphere",
+            "units": units,
+        },
+    }
 
-    erf = (np.abs(experiment_downwelling) - np.abs(experiment_upwelling))-(np.abs(control_downwelling)-np.abs(control_upwelling))
-    erf = erf.rename(attrs[variable_down]['variable_name'])
+    erf = (np.abs(experiment_downwelling) - np.abs(experiment_upwelling)) - (
+        np.abs(ctrl_downwelling) - np.abs(ctrl_upwelling)
+    )
+    erf = erf.rename(attrs[variable_down]["variable_name"])
     erf.attrs = attrs[variable_down]
-    
+
     return erf
 
 
+def calc_total_ERF_surf(
+    experiment_downwelling_SW: xarray.DataArray,
+    experiment_upwelling_SW: xarray.DataArray,
+    experiment_upwelling_LW: xarray.DataArray,
+    ctrl_downwelling_SW: xarray.DataArray,
+    ctrl_upwelling_SW: xarray.DataArray,
+    ctrl_upwelling_LW: xarray.DataArray,
+    ctrl_downwelling_surface_LW: xarray.DataArray,
+    experiment_downwelling_surface_LW: xarray.DataArray,
+) -> xarray.DataArray:
 
-def calc_atm_abs(delta_rad_surf: xarray.DataArray, 
-                delta_rad_toa : xarray.DataArray):
-    """
-    Calculates the atmospheric absorption as the difference between 
-    the radiative imbalance at the top of the atmosphere and the surface. 
+    _check_consitancy_exp_control(experiment_downwelling_SW, ctrl_downwelling_SW)
+    _check_consitancy_exp_control(experiment_upwelling_SW, ctrl_upwelling_SW)
+    _check_consitancy_exp_control(experiment_upwelling_LW, ctrl_upwelling_LW)
+    _check_consitancy_exp_control(
+        experiment_downwelling_surface_LW, ctrl_downwelling_surface_LW
+    )
 
-    
-    """
-    varialbe_pairs={
-        'ERFtsw':'ERFsurfsw',
-        'ERFtswcs' : 'ERFsurfswcs'
-
+    down_up_var_pairs = {
+        "rsus": ["rsds", "rlus", "rlds"],
+        "rsuscs": ["rsdscs", "rsutcs", "rlus"],
     }
+    pass
+
+
+def calc_total_ERF_TOA(
+    experiment_downwelling_SW: xarray.DataArray,
+    experiment_upwelling_SW: xarray.DataArray,
+    experiment_upwelling_LW: xarray.DataArray,
+    ctrl_downwelling_SW: xarray.DataArray,
+    ctrl_upwelling_SW: xarray.DataArray,
+    ctrl_upwelling_LW: xarray.DataArray,
+) -> xarray.DataArray:
+    """
+    Calculate the TOA ERF between control and experiment CMIP6 simulation.
+    Also make sure that the varialbe used are consistent with the derived ERF.
+
+    Paramters
+    ---------
+        experiment_downwelling_SW:      xarray.DataArray
+                                            Experiment downwelling SW radiation at TOA (e.g. rsdt).
+        experiment_upwelling_SW:        xarray.DataArray
+                                            Experiment upwelling SW radiation at TOA (e.g. rsut).
+        experiment_upwelling_LW:        xarray.DataArray
+                                            Experiment upwelling LW radiation at TOA (e.g. rult).
+        ctrl_downwelling_SW:            xarray.DataArray
+                                            Control downwelling SW radiation at TOA
+        ctrl_upwelling_SW:              xarray.DataArray
+                                            Control upwelling SW radiation at TOA
+        ctrl_upwelling_LW:              xarray.DataArray
+                                            Control upwelling LW radiation at TOA
+
+
+    """
+
+    _check_consitancy_exp_control(experiment_downwelling_SW, ctrl_downwelling_SW)
+    _check_consitancy_exp_control(experiment_upwelling_SW, ctrl_upwelling_SW)
+    _check_consitancy_exp_control(experiment_upwelling_LW, ctrl_upwelling_LW)
+
+    down_up_var_pairs = {
+        "rsut": ["rsdt", "rlut"],
+        "rsutcs": ["rsdt", "rlutcs"],
+    }
+
+    lookup_var = experiment_upwelling_SW.name
+
+    corresponding_vars = down_up_var_pairs[lookup_var]
+    for var, name in zip(
+        corresponding_vars,
+        [experiment_downwelling_SW.name, experiment_upwelling_LW.name],
+    ):
+        if var != name:
+            raise AssertionError(
+                f"{lookup_var} not consitent with {name} for ERF TOA calculation"
+            )
+    units = ctrl_downwelling_SW.units
+    attrs = {
+        "rsut": {
+            "varialbe_name": "ERFt",
+            "long_name": "Effective radiative forcing at the top of the atmosphere",
+            "units": units,
+        },
+        "rsutcs": {
+            "varialbe_name": "ERFtcs",
+            "long_name": "Clear sky effective radiative forcing at the top of the atmosphere",
+            "units": units,
+        },
+    }
+
+    rsnt_exp = np.absolute(experiment_downwelling_SW) - np.absolute(
+        experiment_upwelling_SW
+    )
+    rsnt_ctrl = np.absolute(experiment_downwelling_SW) - np.absolute(
+        experiment_upwelling_SW
+    )
+    rlnt_exp = np.absolute(experiment_upwelling_LW)
+    rlnt_ctrl = np.absolute(ctrl_upwelling_LW)
+    erf = (rsnt_exp - rsnt_ctrl) - (rlnt_exp - rlnt_ctrl)
+    erf = erf.rename(attrs[lookup_var]["variable_name"])
+    erf.attrs = {**erf.attrs, **attrs[lookup_var]}
+
+    return erf
+
+
+def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArray):
+    """
+    Calculates the atmospheric absorption as the difference between
+    the radiative imbalance at the top of the atmosphere and the surface.
+
+
+    """
+    varialbe_pairs = {"ERFtsw": "ERFsurfsw", "ERFtswcs": "ERFsurfswcs"}
     variable_toa = delta_rad_toa.name
     variable_surf = delta_rad_surf.name
     units = delta_rad_toa.units
     if varialbe_pairs[variable_toa] != variable_surf:
-        raise ValueError(f'The combination {variable_toa} and {variable_surf} is invalid')
+        raise ValueError(
+            f"The combination {variable_toa} and {variable_surf} is invalid"
+        )
 
     attrs = {
-        'ERFtsw': 
-            {'variable_name':'atmabsSW',
-            'long_name':'Atmospheric absorbtion of short wave radiation.', 
-            'units': units
-            },
-        'ERFtswcs': 
-            {'variable_name':'atmabsSWcs',
-            'long_name':'Clear sky atmospheric absorbtion of short wave radiation.',
-            'units': units    
-            
-            }
-        
-
+        "ERFtsw": {
+            "variable_name": "atmabsSW",
+            "long_name": "Atmospheric absorbtion of short wave radiation.",
+            "units": units,
+        },
+        "ERFtswcs": {
+            "variable_name": "atmabsSWcs",
+            "long_name": "Clear sky atmospheric absorbtion of short wave radiation.",
+            "units": units,
+        },
     }
 
-
     atm_abs = delta_rad_toa - delta_rad_surf
-    atm_abs = atm_abs.rename(attrs[variable_toa]['variable_name'])
-    atm_abs.attrs = {**atm_abs.attrs,**attrs}
+    atm_abs = atm_abs.rename(attrs[variable_toa]["variable_name"])
+    atm_abs.attrs = {**atm_abs.attrs, **attrs[variable_toa]}
 
     return atm_abs
