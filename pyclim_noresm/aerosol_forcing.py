@@ -48,11 +48,11 @@ def merge_exp_ctrl(
             """Control and experiment have to be of the same varialbe"""
         )
 
-    ctrl_lat_bnds, ctrl_lon_bnds = ds_control.lat_bnds, ds_control.lon_bnds
-    exp_lat_bnds, exp_lon_bnds = ds_experiment.lat_bnds, ds_experiment.lon_bnds
+
     # Check if the lon lat bnds are equal between control and experiment
-    np.testing.assert_allclose(ctrl_lat_bnds, exp_lat_bnds, atol=1e-4)
-    np.testing.assert_allclose(ctrl_lon_bnds, exp_lon_bnds, atol=1e-4)
+    np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
+    np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
+
     np.testing.assert_allclose(ds_control.lon, ds_experiment.lon, atol=1e-4)
     np.testing.assert_allclose(ds_control.lat, ds_experiment.lat, atol=1e-4)
 
@@ -62,11 +62,14 @@ def merge_exp_ctrl(
     ds_control = ds_control.assign(
         {"lon_bnds": ds_experiment.lon_bnds, "lat_bnds": ds_experiment.lat_bnds}
     )
-
     ds_control = ds_control.rename(
-        {ds_control["variable_id"]: "control_{}".format(ds_control["variable_id"])}
+        {ds_control.attrs["variable_id"]: "control_{}".format(ds_control.attrs["variable_id"])}
     )
 
+    if len(ds_control.time) > len(ds_experiment.time):
+        ds_control = ds_control.sel(time=ds_experiment.time)
+    else:
+        ds_experiment = ds_experiment.sel(time=ds_control.time)        
     ds = xr.merge(
         [ds_experiment, ds_control],
         compat="broadcast_equals",
@@ -237,7 +240,9 @@ def calc_total_ERF_TOA(
                                             Control upwelling SW radiation at TOA
         ctrl_upwelling_LW:              xarray.DataArray
                                             Control upwelling LW radiation at TOA
-
+    Return
+    ------
+        xarray.DataArray : Containing calculated ERF.
 
     """
 
@@ -264,12 +269,12 @@ def calc_total_ERF_TOA(
     units = ctrl_downwelling_SW.units
     attrs = {
         "rsut": {
-            "varialbe_name": "ERFt",
+            "variable_name": "ERFt",
             "long_name": "Effective radiative forcing at the top of the atmosphere",
             "units": units,
         },
         "rsutcs": {
-            "varialbe_name": "ERFtcs",
+            "variable_name": "ERFtcs",
             "long_name": "Clear sky effective radiative forcing at the top of the atmosphere",
             "units": units,
         },
@@ -317,6 +322,17 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArr
             "long_name": "Clear sky atmospheric absorbtion of short wave radiation.",
             "units": units,
         },
+        "ERFt" : {
+            "variable_name":"atmabs",
+            "long_name": "Total atmospheric absorbtion",
+            "units" : units
+        },
+        "ERFtcs" : {
+            "variable_name":"atmabscs",
+            "long_name" : "Total atmospheric absorbtion assuming clear sky.",
+            "units" : units
+        }
+
     }
 
     atm_abs = delta_rad_toa - delta_rad_surf

@@ -102,14 +102,13 @@ def main():
             control = find_models(root_dir,path.name,'piClim-control', variables)
             if control:
                 control_list.append(control)
-        print(control_list)
         control = dict(pair for d in control_list for pair in d['piClim-control'].items())
         result['piClim-control'] = control
 
     if out_path:
         fname = os.path.join(out_path, f"available_{experiment}_{activity}.yaml")
     else:
-        fname = f"availabe_{experiment}_{activity}.yaml"
+        fname = f"available_{experiment}_{activity}.yaml"
     with open(fname, "w") as out_file:
         yaml.dump(result, out_file, default_flow_style=False)
 
