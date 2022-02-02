@@ -48,7 +48,6 @@ def merge_exp_ctrl(
             """Control and experiment have to be of the same varialbe"""
         )
 
-
     # Check if the lon lat bnds are equal between control and experiment
     np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
     np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
@@ -63,13 +62,17 @@ def merge_exp_ctrl(
         {"lon_bnds": ds_experiment.lon_bnds, "lat_bnds": ds_experiment.lat_bnds}
     )
     ds_control = ds_control.rename(
-        {ds_control.attrs["variable_id"]: "control_{}".format(ds_control.attrs["variable_id"])}
+        {
+            ds_control.attrs["variable_id"]: "control_{}".format(
+                ds_control.attrs["variable_id"]
+            )
+        }
     )
 
     if len(ds_control.time) > len(ds_experiment.time):
         ds_control = ds_control.sel(time=ds_experiment.time)
     else:
-        ds_experiment = ds_experiment.sel(time=ds_control.time)        
+        ds_experiment = ds_experiment.sel(time=ds_control.time)
     ds = xr.merge(
         [ds_experiment, ds_control],
         compat="broadcast_equals",
@@ -190,27 +193,96 @@ def calc_SW_ERF(
 
 
 def calc_total_ERF_surf(
-    experiment_downwelling_SW: xarray.DataArray,
-    experiment_upwelling_SW: xarray.DataArray,
-    experiment_upwelling_LW: xarray.DataArray,
-    ctrl_downwelling_SW: xarray.DataArray,
-    ctrl_upwelling_SW: xarray.DataArray,
-    ctrl_upwelling_LW: xarray.DataArray,
-    ctrl_downwelling_surface_LW: xarray.DataArray,
-    experiment_downwelling_surface_LW: xarray.DataArray,
+    experiment_downwelling_SW_surf: xarray.DataArray,
+    experiment_upwelling_SW_surf: xarray.DataArray,
+    experiment_upwelling_LW_surf: xarray.DataArray,
+    ctrl_downwelling_SW_surf: xarray.DataArray,
+    ctrl_upwelling_SW_surf: xarray.DataArray,
+    ctrl_upwelling_LW_surf: xarray.DataArray,
+    ctrl_downwelling_LW_surf: xarray.DataArray,
+    experiment_downwelling_LW_surf: xarray.DataArray,
 ) -> xarray.DataArray:
 
-    _check_consitancy_exp_control(experiment_downwelling_SW, ctrl_downwelling_SW)
-    _check_consitancy_exp_control(experiment_upwelling_SW, ctrl_upwelling_SW)
-    _check_consitancy_exp_control(experiment_upwelling_LW, ctrl_upwelling_LW)
+    """
+    Calculate the surface ERF between control and experiment CMIP6 simulation.
+    While making sure that the varialbe used are consistent with the derived ERF.
+    Can derive both total surface ERF and clear sky ERF
+
+    Paramters
+    ---------
+        experiment_downwelling_SW_surf:      xarray.DataArray
+                                            Experiment downwelling SW radiation at surface (e.g. rsds).
+        experiment_upwelling_SW_surf:        xarray.DataArray
+                                            Experiment upwelling SW radiation at surface (e.g. rsus).
+        experiment_upwelling_LW_surf:        xarray.DataArray
+                                            Experiment upwelling LW radiation at surface (e.g. ruls).
+        ctrl_downwelling_SW_surf:            xarray.DataArray
+                                            Control downwelling SW radiation at surface
+        ctrl_upwelling_SW_surf:              xarray.DataArray
+                                            Control upwelling SW radiation at surface
+        ctrl_upwelling_LW_surf:              xarray.DataArray
+                                            Control upwelling LW radiation at surface
+    Return
+    ------
+        xarray.DataArray : Containing calculated ERF.
+
+    """
+
     _check_consitancy_exp_control(
-        experiment_downwelling_surface_LW, ctrl_downwelling_surface_LW
+        experiment_downwelling_SW_surf, ctrl_downwelling_SW_surf
+    )
+    _check_consitancy_exp_control(experiment_upwelling_SW_surf, ctrl_upwelling_SW_surf)
+    _check_consitancy_exp_control(experiment_upwelling_LW_surf, ctrl_upwelling_LW_surf)
+    _check_consitancy_exp_control(
+        experiment_downwelling_LW_surf, ctrl_downwelling_LW_surf
     )
 
     down_up_var_pairs = {
         "rsus": ["rsds", "rlus", "rlds"],
         "rsuscs": ["rsdscs", "rsutcs", "rlus"],
     }
+
+    lookup_var = experiment_upwelling_SW_surf.name
+
+    corresponding_vars = down_up_var_pairs[lookup_var]
+    for var, name in zip(
+        corresponding_vars,
+        [experiment_downwelling_SW_surf.name, experiment_upwelling_LW_surf.name],
+    ):
+        if var != name:
+            raise AssertionError(
+                f"{lookup_var} not consitent with {name} for ERF TOA calculation"
+            )
+    units = ctrl_downwelling_SW_surf.units
+    attrs = {
+        "rsus": {
+            "variable_name": "ERFsurf",
+            "long_name": "Effective radiative forcing at the surface",
+            "units": units,
+        },
+        "rsuscs": {
+            "variable_name": "ERFsurfcs",
+            "long_name": "Clear sky effective radiative forcing at the surface",
+            "units": units,
+        },
+    }
+
+    rsns_exp = np.absolute(experiment_downwelling_SW_surf) - np.absolute(
+        experiment_upwelling_SW_surf
+    )
+    rsns_ctrl = np.absolute(experiment_downwelling_SW_surf) - np.absolute(
+        experiment_upwelling_SW_surf
+    )
+    rlns_exp = np.absolute(experiment_downwelling_LW_surf) - np.absolute(
+        experiment_upwelling_LW_surf
+    )
+    rlns_ctrl = np.absolute(ctrl_downwelling_LW_surf) - np.absolute(
+        ctrl_upwelling_LW_surf
+    )
+    erf = (rsns_exp - rsns_ctrl) - (rlns_exp - rlns_ctrl)
+    erf = erf.rename(attrs[lookup_var]["variable_name"])
+    erf.attrs = {**erf.attrs, **attrs[lookup_var]}
+
     pass
 
 
@@ -322,17 +394,16 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArr
             "long_name": "Clear sky atmospheric absorbtion of short wave radiation.",
             "units": units,
         },
-        "ERFt" : {
-            "variable_name":"atmabs",
+        "ERFt": {
+            "variable_name": "atmabs",
             "long_name": "Total atmospheric absorbtion",
-            "units" : units
+            "units": units,
         },
-        "ERFtcs" : {
-            "variable_name":"atmabscs",
-            "long_name" : "Total atmospheric absorbtion assuming clear sky.",
-            "units" : units
-        }
-
+        "ERFtcs": {
+            "variable_name": "atmabscs",
+            "long_name": "Total atmospheric absorbtion assuming clear sky.",
+            "units": units,
+        },
     }
 
     atm_abs = delta_rad_toa - delta_rad_surf
