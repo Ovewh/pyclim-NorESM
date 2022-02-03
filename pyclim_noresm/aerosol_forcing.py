@@ -1,8 +1,7 @@
-from typing import Optional
 import xarray as xr
 import xarray
 import numpy as np
-from .general_util_funcs import global_avg
+from .regrid_functions import make_latlon_bounds
 
 
 # Should I use xarray.dataset_accessor???
@@ -49,6 +48,11 @@ def merge_exp_ctrl(
         )
 
     # Check if the lon lat bnds are equal between control and experiment
+    if 'lat_bnds' not in ds_control.variables or 'lon_bnds' not in ds_control.variables:
+        ds_control = make_latlon_bounds(ds_control)
+    if 'lat_bnds' not in ds_experiment.variables or 'lon_bnds' not in ds_experiment.variables:
+        ds_experiment = make_latlon_bounds(ds_experiment)
+
     np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
     np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
 
@@ -155,14 +159,15 @@ def calc_SW_ERF(
     variable_down = experiment_downwelling.name
     variable_up = experiment_upwelling.name
     units = experiment_upwelling.units
-    if down_up_var_pairs[variable_down] != variable_up:
+    print(variable_up, variable_down)
+    if down_up_var_pairs[variable_up] != variable_down:
         raise ValueError(
             f"The combination {variable_down} and {variable_up} is invalid"
         )
 
     attrs = {
         "rsut": {
-            "varialbe_name": "ERFtsw",
+            "variable_name": "ERFtsw",
             "long_name": "Effective radiative forcing short wave at the top of the atmosphere",
             "units": units,
         },
@@ -177,7 +182,7 @@ def calc_SW_ERF(
             "units": units,
         },
         "rsutcs": {
-            "varialbe_name": "ERFtswcs",
+            "variable_name": "ERFtswcs",
             "long_name": "Effective clear sky radiative forcing short wave at the top of the atmosphere",
             "units": units,
         },
@@ -186,8 +191,8 @@ def calc_SW_ERF(
     erf = (np.abs(experiment_downwelling) - np.abs(experiment_upwelling)) - (
         np.abs(ctrl_downwelling) - np.abs(ctrl_upwelling)
     )
-    erf = erf.rename(attrs[variable_down]["variable_name"])
-    erf.attrs = attrs[variable_down]
+    erf = erf.rename(attrs[variable_up]["variable_name"])
+    erf.attrs = attrs[variable_up]
 
     return erf
 
@@ -196,11 +201,12 @@ def calc_total_ERF_surf(
     experiment_downwelling_SW_surf: xarray.DataArray,
     experiment_upwelling_SW_surf: xarray.DataArray,
     experiment_upwelling_LW_surf: xarray.DataArray,
+    experiment_downwelling_LW_surf: xarray.DataArray,
     ctrl_downwelling_SW_surf: xarray.DataArray,
     ctrl_upwelling_SW_surf: xarray.DataArray,
     ctrl_upwelling_LW_surf: xarray.DataArray,
     ctrl_downwelling_LW_surf: xarray.DataArray,
-    experiment_downwelling_LW_surf: xarray.DataArray,
+   
 ) -> xarray.DataArray:
 
     """
@@ -216,12 +222,16 @@ def calc_total_ERF_surf(
                                             Experiment upwelling SW radiation at surface (e.g. rsus).
         experiment_upwelling_LW_surf:        xarray.DataArray
                                             Experiment upwelling LW radiation at surface (e.g. ruls).
+        experiment_downwelling_LW_sur:       xarray.DataArray
+                                            Experiment downwelling LW radiation at surface.
         ctrl_downwelling_SW_surf:            xarray.DataArray
-                                            Control downwelling SW radiation at surface
+                                            Control downwelling SW radiation at surface.
         ctrl_upwelling_SW_surf:              xarray.DataArray
-                                            Control upwelling SW radiation at surface
+                                            Control upwelling SW radiation at surface.
         ctrl_upwelling_LW_surf:              xarray.DataArray
-                                            Control upwelling LW radiation at surface
+                                            Control upwelling LW radiation at surface.
+        ctrl_downwelling_LW_surf:            xarray.DataArray
+                                            Control downwelling LW radiation at surface.
     Return
     ------
         xarray.DataArray : Containing calculated ERF.
@@ -239,7 +249,7 @@ def calc_total_ERF_surf(
 
     down_up_var_pairs = {
         "rsus": ["rsds", "rlus", "rlds"],
-        "rsuscs": ["rsdscs", "rsutcs", "rlus"],
+        "rsuscs": ["rsds","rluscs", "rldscs"],
     }
 
     lookup_var = experiment_upwelling_SW_surf.name
@@ -283,7 +293,7 @@ def calc_total_ERF_surf(
     erf = erf.rename(attrs[lookup_var]["variable_name"])
     erf.attrs = {**erf.attrs, **attrs[lookup_var]}
 
-    pass
+    return erf
 
 
 def calc_total_ERF_TOA(
