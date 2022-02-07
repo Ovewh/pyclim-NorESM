@@ -384,7 +384,7 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArr
 
 
     """
-    varialbe_pairs = {"ERFtsw": "ERFsurfsw", "ERFtswcs": "ERFsurfswcs"}
+    varialbe_pairs = {"ERFtsw": "ERFsurfsw", "ERFtswcs": "ERFsurfswcs","ERFt":"ERFsurf","ERFtcs":"ERFsurfcs"}
     variable_toa = delta_rad_toa.name
     variable_surf = delta_rad_surf.name
     units = delta_rad_toa.units
