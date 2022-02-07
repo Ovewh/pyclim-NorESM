@@ -52,12 +52,17 @@ def merge_exp_ctrl(
         ds_control = make_latlon_bounds(ds_control)
     if 'lat_bnds' not in ds_experiment.variables or 'lon_bnds' not in ds_experiment.variables:
         ds_experiment = make_latlon_bounds(ds_experiment)
-
-    np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
-    np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
-
-    np.testing.assert_allclose(ds_control.lon, ds_experiment.lon, atol=1e-4)
-    np.testing.assert_allclose(ds_control.lat, ds_experiment.lat, atol=1e-4)
+    try:
+        np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
+        np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
+        np.testing.assert_allclose(ds_control.lat, ds_experiment.lat, atol=1e-4)
+    except AssertionError:
+        ds_control = make_latlon_bounds(ds_control)
+        ds_experiment = make_latlon_bounds(ds_experiment)
+        np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
+        np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
+        np.testing.assert_allclose(ds_control.lat, ds_experiment.lat, atol=1e-4)
+        
 
     ds_control = ds_control.reindex(
         {"lon": ds_experiment.lon, "lat": ds_experiment.lat}, method="nearest"
