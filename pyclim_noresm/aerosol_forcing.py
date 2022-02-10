@@ -276,12 +276,12 @@ def calc_total_ERF_surf(
             "units": units,
         },
     }
-
+    
     rsns_exp = - np.absolute(experiment_downwelling_SW_surf) + np.absolute(
         experiment_upwelling_SW_surf
     )
-    rsns_ctrl =  - np.absolute(experiment_downwelling_SW_surf) + np.absolute(
-        experiment_upwelling_SW_surf
+    rsns_ctrl =  - np.absolute(ctrl_downwelling_SW_surf) + np.absolute(
+        ctrl_upwelling_SW_surf
     )
     rlns_exp = - np.absolute(experiment_downwelling_LW_surf) + np.absolute(
         experiment_upwelling_LW_surf
@@ -289,7 +289,7 @@ def calc_total_ERF_surf(
     rlns_ctrl = - np.absolute(ctrl_downwelling_LW_surf) + np.absolute(
         ctrl_upwelling_LW_surf
     )
-    erf = (rsns_exp - rsns_ctrl) - (rlns_exp - rlns_ctrl)
+    erf = (rsns_exp - rlns_exp) - (rsns_ctrl - rlns_ctrl)
     erf = erf.rename(attrs[lookup_var]["variable_name"])
     erf.attrs = {**erf.attrs, **attrs[lookup_var]}
 
@@ -365,12 +365,13 @@ def calc_total_ERF_TOA(
     rsnt_exp = - np.absolute(experiment_downwelling_SW) + np.absolute(
         experiment_upwelling_SW
     )
-    rsnt_ctrl = - np.absolute(experiment_downwelling_SW) + np.absolute(
-        experiment_upwelling_SW
+    rsnt_ctrl = - np.absolute(ctrl_downwelling_SW) + np.absolute(
+        ctrl_upwelling_SW
     )
     rlnt_exp = np.absolute(experiment_upwelling_LW)
     rlnt_ctrl = np.absolute(ctrl_upwelling_LW)
-    erf = (rsnt_exp - rsnt_ctrl) - (rlnt_exp - rlnt_ctrl)
+    # Take Net LW + SW TOA in experiment - control
+    erf = (rsnt_exp + rlnt_exp) - (rsnt_ctrl + rlnt_ctrl)
     erf = erf.rename(attrs[lookup_var]["variable_name"])
     erf.attrs = {**erf.attrs, **attrs[lookup_var]}
 
