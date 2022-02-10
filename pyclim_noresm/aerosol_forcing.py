@@ -3,10 +3,6 @@ import xarray
 import numpy as np
 from .regrid_functions import make_latlon_bounds
 
-
-# Should I use xarray.dataset_accessor???
-
-
 def merge_exp_ctrl(
     ds_control: xarray.Dataset,
     ds_experiment: xarray.Dataset,
@@ -164,7 +160,6 @@ def calc_SW_ERF(
     variable_down = experiment_downwelling.name
     variable_up = experiment_upwelling.name
     units = experiment_upwelling.units
-    print(variable_up, variable_down)
     if down_up_var_pairs[variable_up] != variable_down:
         raise ValueError(
             f"The combination {variable_down} and {variable_up} is invalid"
@@ -193,8 +188,8 @@ def calc_SW_ERF(
         },
     }
 
-    erf = (np.abs(experiment_downwelling) - np.abs(experiment_upwelling)) - (
-        np.abs(ctrl_downwelling) - np.abs(ctrl_upwelling)
+    erf = (-np.abs(experiment_downwelling) + np.abs(experiment_upwelling)) - (
+        -np.abs(ctrl_downwelling) + np.abs(ctrl_upwelling)
     )
     erf = erf.rename(attrs[variable_up]["variable_name"])
     erf.attrs = attrs[variable_up]
@@ -282,16 +277,16 @@ def calc_total_ERF_surf(
         },
     }
 
-    rsns_exp = np.absolute(experiment_downwelling_SW_surf) - np.absolute(
+    rsns_exp = - np.absolute(experiment_downwelling_SW_surf) + np.absolute(
         experiment_upwelling_SW_surf
     )
-    rsns_ctrl = np.absolute(experiment_downwelling_SW_surf) - np.absolute(
+    rsns_ctrl =  - np.absolute(experiment_downwelling_SW_surf) + np.absolute(
         experiment_upwelling_SW_surf
     )
-    rlns_exp = np.absolute(experiment_downwelling_LW_surf) - np.absolute(
+    rlns_exp = - np.absolute(experiment_downwelling_LW_surf) + np.absolute(
         experiment_upwelling_LW_surf
     )
-    rlns_ctrl = np.absolute(ctrl_downwelling_LW_surf) - np.absolute(
+    rlns_ctrl = - np.absolute(ctrl_downwelling_LW_surf) + np.absolute(
         ctrl_upwelling_LW_surf
     )
     erf = (rsns_exp - rsns_ctrl) - (rlns_exp - rlns_ctrl)
@@ -367,10 +362,10 @@ def calc_total_ERF_TOA(
         },
     }
 
-    rsnt_exp = np.absolute(experiment_downwelling_SW) - np.absolute(
+    rsnt_exp = - np.absolute(experiment_downwelling_SW) + np.absolute(
         experiment_upwelling_SW
     )
-    rsnt_ctrl = np.absolute(experiment_downwelling_SW) - np.absolute(
+    rsnt_ctrl = - np.absolute(experiment_downwelling_SW) + np.absolute(
         experiment_upwelling_SW
     )
     rlnt_exp = np.absolute(experiment_upwelling_LW)
