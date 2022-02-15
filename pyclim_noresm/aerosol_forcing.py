@@ -134,7 +134,7 @@ def calc_LW_ERF_toa(experiment_upwelling: xarray.DataArray,
 
     """
     _check_consitancy_exp_control(experiment_upwelling, ctrl_upwelling)
-    valid_variables = ['rlut','rlutaf','rlutcs']
+    valid_variables = ['rlut','rlutaf','rlutcs', 'rlutcsaf']
     variable_up = experiment_upwelling.name
     units = variable_up.units
     if variable_up not in valid_variables:
@@ -156,6 +156,11 @@ def calc_LW_ERF_toa(experiment_upwelling: xarray.DataArray,
             "variable_name": "ERFtlwcs",
             "long_name": "Effective radiative forcing long wave at the top of the atmosphere assuming clear sky",
             "units": units,
+        },
+        "rlutcsaf": {
+            "variable_name":"ERFtlwcsaf",
+            "long_name": "Effective radiative forcing long wave at the top of the atmosphere clear sky aerosol free",
+            "units":units
         }
     }
     ERF_lw = experiment_upwelling - ctrl_upwelling
@@ -232,6 +237,16 @@ def calc_SW_ERF(
             "long_name": "Effective clear sky radiative forcing short wave at the top of the atmosphere",
             "units": units,
         },
+        "rsutaf":{
+            "variable_name": "ERFtswaf",
+            "long_name": "Effective radiative forcing short wave at the top of the atmosphere aerosol free",
+            "units":units,
+        },
+        "rsutcsaf":{
+            "variable_name": "ERFtswcsaf",
+            "long_name": "Effective radiative forcing short wave at the top of the atmosphere clear sky aerosol free",
+            "units":units
+        }
     }
 
     Snet_ctrl = -np.abs(ctrl_downwelling) + np.abs(ctrl_upwelling)
@@ -381,7 +396,8 @@ def calc_total_ERF_TOA(
     down_up_var_pairs = {
         "rsut": ["rsdt", "rlut"],
         "rsutcs": ["rsdt", "rlutcs"],
-        "rsutaf": ["rsdt", "rlutaf"]
+        "rsutaf": ["rsdt", "rlutaf"],
+        "rsutcsaf":["rsdt","rlutcsaf"]
     }
 
     lookup_var = experiment_upwelling_SW.name
@@ -411,6 +427,11 @@ def calc_total_ERF_TOA(
             "variable_name": "ERFtaf",
             "long_name": "Aerosol free effective radiative forcing at the top of the atmosphere",
             "units": units,
+        },
+        "rsutcsaf":{
+            "variable_name": "ERFtcsaf",
+            "long_name": "Clear sky aerosol free effective radiative forcing at the top of the atmosphere",
+            "units":units
         }
     }
 
@@ -437,10 +458,10 @@ def calc_direct_aerosol_radiative_effect(ERFt: xarray.DataArray,
 
     Parameters
     ----------
-        ERFsw : xarray.DataArray 
-            Shortwave effective radiative forcing 
-        ERFswaf :
-            Shortwave aerosol free radiatve forcing
+        ERFt : xarray.DataArray 
+            Effective radiative forcing toa
+        ERFtaf :
+            Aerosol free radiatve forcing toa
     
     Return:
         DirectEff : xarray.DataArray
@@ -462,8 +483,8 @@ def calc_direct_aerosol_radiative_effect(ERFt: xarray.DataArray,
             "units": units
         },
         "ERFtswcs":{
-            "variable_name": "SWDirectEff_cf",
-            "long_name":"Short wave Direct aerosol effect cloud free",
+            "variable_name": "SWDirectEff_cs",
+            "long_name":"Short wave Direct aerosol effect clear sky",
             "units":units
         },
         "ERFtlw":{
@@ -473,7 +494,7 @@ def calc_direct_aerosol_radiative_effect(ERFt: xarray.DataArray,
         },
         "ERFtlwcs": {
             "variable_name":"LWDirectEff_cs",
-            "long_name" : "Long wave aerosol direct effect",
+            "long_name" : "Long wave aerosol direct effect clear sky",
             "units":units
         }
     }
@@ -482,10 +503,11 @@ def calc_direct_aerosol_radiative_effect(ERFt: xarray.DataArray,
     dirEffect = dirEffect.rename(attrs[variable_tot]["variable_name"])
     dirEffect.attrs = {**dirEffect.attrs, **dirEffect.attrs}
     return dirEffect
-def calc_cloud_SWLW_effects(ERFsw: xarray.DataArray, 
-                        dirEffect: xarray.DataArray):
+def calc_cloud_forcing(ERFaf: xarray.DataArray, 
+                        ERFcsaf: xarray.DataArray):
     """
     Calculates cloud radiatve effect by aerosols, which is the combined direct and semi direct effects.
+    Defined as the difference in aerosol free - aerosol free clear sky.
 
     Parameters:
     -----------   
@@ -494,9 +516,9 @@ def calc_cloud_SWLW_effects(ERFsw: xarray.DataArray,
         dirEffect : xarray.DataArray
             Direct radiative effect
     """
-    variable_pairs = {'ERFtsw':'SWDirectEff','ERFtlw':'LWDirectEff'}
-    variable_tot = ERFsw.name
-    variable_direct = dirEffect.name
+    variable_pairs = {'ERFtaf':'ERFtcsaf','ERFswaf':'ERFswcsaf','ERFtlwaf':'ERFtlwcsaf'}
+    variable_tot = ERFaf.name
+    variable_direct = ERFcsaf.name
     if variable_pairs[variable_tot] != variable_direct:
         raise ValueError(
             f"The combination {variable_tot} and {variable_direct} is invalid"
@@ -504,18 +526,25 @@ def calc_cloud_SWLW_effects(ERFsw: xarray.DataArray,
     units = variable_direct.units
 
     attrs = {
-        "ERFtsw":{
-            "variable_name": "SWCloudEff",
+        "ERFtaf":{
+            "variable_name": "CloudEff",
             "long_name": "Aerosol Cloud radiative effect ",
             "units": units
         },
-        "ERFtlw":{
-            w
+        "ERFtswaf":{
+            "variable_name": "SWCloudEff",
+            "long_name": "Short wave Aerosol cloud radiative effect",
+            "units": units
+        },
+        "ERFlwaf":{
+            "variable_name": "LWCloudEff",
+            "long_name": "Long wave aerosol cloud radiative effect",
+            "units": units
         }
 
     }
 
-    cloud_effect = ERFsw-dirEffect
+    cloud_effect = ERFaf - ERFcsaf
     cloud_effect = cloud_effect.rename(attrs[variable_tot]["variable_name"])
     cloud_effect.attrs = {**cloud_effect.attrs, **attrs[variable_tot]}
     
