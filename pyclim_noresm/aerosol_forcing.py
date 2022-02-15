@@ -149,7 +149,7 @@ def calc_LW_ERF_toa(
     _check_consitancy_exp_control(experiment_upwelling, ctrl_upwelling)
     valid_variables = ["rlut", "rlutaf", "rlutcs", "rlutcsaf"]
     variable_up = experiment_upwelling.name
-    units = variable_up.units
+    units = experiment_upwelling.units
     if variable_up not in valid_variables:
         raise ValueError(f"{variable_up} is not a valid for calculating long wave ERF")
     attrs = {
@@ -543,7 +543,7 @@ def calc_cloud_forcing(ERFaf: xarray.DataArray, ERFcsaf: xarray.DataArray):
         raise ValueError(
             f"The combination {variable_tot} and {variable_direct} is invalid"
         )
-    units = variable_direct.units
+    units = ERFaf.units
 
     attrs = {
         "ERFtaf": {
