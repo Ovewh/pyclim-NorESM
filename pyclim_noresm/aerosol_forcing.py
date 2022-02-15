@@ -3,6 +3,7 @@ import xarray
 import numpy as np
 from .regrid_functions import make_latlon_bounds
 
+
 def merge_exp_ctrl(
     ds_control: xarray.Dataset,
     ds_experiment: xarray.Dataset,
@@ -44,21 +45,31 @@ def merge_exp_ctrl(
         )
 
     # Check if the lon lat bnds are equal between control and experiment
-    if 'lat_bnds' not in ds_control.variables or 'lon_bnds' not in ds_control.variables:
+    if "lat_bnds" not in ds_control.variables or "lon_bnds" not in ds_control.variables:
         ds_control = make_latlon_bounds(ds_control)
-    if 'lat_bnds' not in ds_experiment.variables or 'lon_bnds' not in ds_experiment.variables:
+    if (
+        "lat_bnds" not in ds_experiment.variables
+        or "lon_bnds" not in ds_experiment.variables
+    ):
         ds_experiment = make_latlon_bounds(ds_experiment)
     try:
-        np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
-        np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
+        np.testing.assert_allclose(
+            ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4
+        )
+        np.testing.assert_allclose(
+            ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4
+        )
         np.testing.assert_allclose(ds_control.lat, ds_experiment.lat, atol=1e-4)
     except AssertionError:
         ds_control = make_latlon_bounds(ds_control)
         ds_experiment = make_latlon_bounds(ds_experiment)
-        np.testing.assert_allclose(ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4)
-        np.testing.assert_allclose(ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4)
+        np.testing.assert_allclose(
+            ds_control.lon_bnds, ds_experiment.lon_bnds, atol=1e-4
+        )
+        np.testing.assert_allclose(
+            ds_control.lat_bnds, ds_experiment.lat_bnds, atol=1e-4
+        )
         np.testing.assert_allclose(ds_control.lat, ds_experiment.lat, atol=1e-4)
-        
 
     ds_control = ds_control.reindex(
         {"lon": ds_experiment.lon, "lat": ds_experiment.lat}, method="nearest"
@@ -118,8 +129,10 @@ def _check_consitancy_exp_control(experiment, control):
             "Control and experiment have to be xarray.DataArray objects"
         )
 
-def calc_LW_ERF_toa(experiment_upwelling: xarray.DataArray,
-                    ctrl_upwelling: xarray.DataArray):
+
+def calc_LW_ERF_toa(
+    experiment_upwelling: xarray.DataArray, ctrl_upwelling: xarray.DataArray
+):
     """
     Calculate the difference in net TOA LW fluxes between experiment and control:
 
@@ -134,13 +147,11 @@ def calc_LW_ERF_toa(experiment_upwelling: xarray.DataArray,
 
     """
     _check_consitancy_exp_control(experiment_upwelling, ctrl_upwelling)
-    valid_variables = ['rlut','rlutaf','rlutcs', 'rlutcsaf']
+    valid_variables = ["rlut", "rlutaf", "rlutcs", "rlutcsaf"]
     variable_up = experiment_upwelling.name
     units = variable_up.units
     if variable_up not in valid_variables:
-        raise ValueError(
-            f'{variable_up} is not a valid for calculating long wave ERF'
-        )
+        raise ValueError(f"{variable_up} is not a valid for calculating long wave ERF")
     attrs = {
         "rlut": {
             "variable_name": "ERFtlw",
@@ -158,14 +169,15 @@ def calc_LW_ERF_toa(experiment_upwelling: xarray.DataArray,
             "units": units,
         },
         "rlutcsaf": {
-            "variable_name":"ERFtlwcsaf",
+            "variable_name": "ERFtlwcsaf",
             "long_name": "Effective radiative forcing long wave at the top of the atmosphere clear sky aerosol free",
-            "units":units
-        }
+            "units": units,
+        },
     }
     ERF_lw = experiment_upwelling - ctrl_upwelling
     ERF_lw.attrs = {**attrs, **ERF_lw.attrs}
     return ERF_lw
+
 
 def calc_SW_ERF(
     experiment_downwelling: xarray.DataArray,
@@ -206,7 +218,7 @@ def calc_SW_ERF(
         "rsus": "rsds",
         "rsuscs": "rsdscs",
         "rsutcs": "rsdt",
-        "rsutaf": "rsdt"
+        "rsutaf": "rsdt",
     }
     variable_down = experiment_downwelling.name
     variable_up = experiment_upwelling.name
@@ -237,26 +249,27 @@ def calc_SW_ERF(
             "long_name": "Effective clear sky radiative forcing short wave at the top of the atmosphere",
             "units": units,
         },
-        "rsutaf":{
+        "rsutaf": {
             "variable_name": "ERFtswaf",
             "long_name": "Effective radiative forcing short wave at the top of the atmosphere aerosol free",
-            "units":units,
+            "units": units,
         },
-        "rsutcsaf":{
+        "rsutcsaf": {
             "variable_name": "ERFtswcsaf",
             "long_name": "Effective radiative forcing short wave at the top of the atmosphere clear sky aerosol free",
-            "units":units
-        }
+            "units": units,
+        },
     }
 
     Snet_ctrl = -np.abs(ctrl_downwelling) + np.abs(ctrl_upwelling)
     Snet_exp = -np.abs(experiment_downwelling) + np.abs(experiment_upwelling)
 
-    erf = Snet_exp-Snet_ctrl
+    erf = Snet_exp - Snet_ctrl
     erf = erf.rename(attrs[variable_up]["variable_name"])
     erf.attrs = attrs[variable_up]
 
     return erf
+
 
 def calc_total_ERF_surf(
     experiment_downwelling_SW_surf: xarray.DataArray,
@@ -267,7 +280,6 @@ def calc_total_ERF_surf(
     ctrl_upwelling_SW_surf: xarray.DataArray,
     ctrl_upwelling_LW_surf: xarray.DataArray,
     ctrl_downwelling_LW_surf: xarray.DataArray,
-   
 ) -> xarray.DataArray:
 
     """
@@ -310,7 +322,7 @@ def calc_total_ERF_surf(
 
     down_up_var_pairs = {
         "rsus": ["rsds", "rlus", "rlds"],
-        "rsuscs": ["rsds","rluscs", "rldscs"],
+        "rsuscs": ["rsds", "rluscs", "rldscs"],
     }
 
     lookup_var = experiment_upwelling_SW_surf.name
@@ -337,17 +349,17 @@ def calc_total_ERF_surf(
             "units": units,
         },
     }
-    
-    rsns_exp = - np.absolute(experiment_downwelling_SW_surf) + np.absolute(
+
+    rsns_exp = -np.absolute(experiment_downwelling_SW_surf) + np.absolute(
         experiment_upwelling_SW_surf
     )
-    rsns_ctrl =  - np.absolute(ctrl_downwelling_SW_surf) + np.absolute(
+    rsns_ctrl = -np.absolute(ctrl_downwelling_SW_surf) + np.absolute(
         ctrl_upwelling_SW_surf
     )
-    rlns_exp = - np.absolute(experiment_downwelling_LW_surf) + np.absolute(
+    rlns_exp = -np.absolute(experiment_downwelling_LW_surf) + np.absolute(
         experiment_upwelling_LW_surf
     )
-    rlns_ctrl = - np.absolute(ctrl_downwelling_LW_surf) + np.absolute(
+    rlns_ctrl = -np.absolute(ctrl_downwelling_LW_surf) + np.absolute(
         ctrl_upwelling_LW_surf
     )
     erf = (rsns_exp - rlns_exp) - (rsns_ctrl - rlns_ctrl)
@@ -397,7 +409,7 @@ def calc_total_ERF_TOA(
         "rsut": ["rsdt", "rlut"],
         "rsutcs": ["rsdt", "rlutcs"],
         "rsutaf": ["rsdt", "rlutaf"],
-        "rsutcsaf":["rsdt","rlutcsaf"]
+        "rsutcsaf": ["rsdt", "rlutcsaf"],
     }
 
     lookup_var = experiment_upwelling_SW.name
@@ -428,19 +440,17 @@ def calc_total_ERF_TOA(
             "long_name": "Aerosol free effective radiative forcing at the top of the atmosphere",
             "units": units,
         },
-        "rsutcsaf":{
+        "rsutcsaf": {
             "variable_name": "ERFtcsaf",
             "long_name": "Clear sky aerosol free effective radiative forcing at the top of the atmosphere",
-            "units":units
-        }
+            "units": units,
+        },
     }
 
-    rsnt_exp = - np.absolute(experiment_downwelling_SW) + np.absolute(
+    rsnt_exp = -np.absolute(experiment_downwelling_SW) + np.absolute(
         experiment_upwelling_SW
     )
-    rsnt_ctrl = - np.absolute(ctrl_downwelling_SW) + np.absolute(
-        ctrl_upwelling_SW
-    )
+    rsnt_ctrl = -np.absolute(ctrl_downwelling_SW) + np.absolute(ctrl_upwelling_SW)
     rlnt_exp = np.absolute(experiment_upwelling_LW)
     rlnt_ctrl = np.absolute(ctrl_upwelling_LW)
     # Take Net LW + SW TOA in experiment - control
@@ -450,8 +460,10 @@ def calc_total_ERF_TOA(
 
     return erf
 
-def calc_direct_aerosol_radiative_effect(ERFt: xarray.DataArray, 
-                 ERFtaf: xarray.DataArray):
+
+def calc_direct_aerosol_radiative_effect(
+    ERFt: xarray.DataArray, ERFtaf: xarray.DataArray
+):
     """
     Calculates the direct radiative effect as the difference between shortwave ERF and aerofree ERF 
     to diagnose the direct aerosol forcing. Aerosol free ERF represent "indirect effect"
@@ -466,45 +478,49 @@ def calc_direct_aerosol_radiative_effect(ERFt: xarray.DataArray,
     Return:
         DirectEff : xarray.DataArray
     """
-    
-    variable_pairs = {"ERFtsw":"ERFtswaf", "ERFtswcs":"ERFtswcsaf", "ERFtlw":"ERFtlwaf","ERFtlwcs":"ERFtlwcsaf"}
+
+    variable_pairs = {
+        "ERFtsw": "ERFtswaf",
+        "ERFtswcs": "ERFtswcsaf",
+        "ERFtlw": "ERFtlwaf",
+        "ERFtlwcs": "ERFtlwcsaf",
+    }
     variable_tot = ERFt.name
     variable_af = ERFtaf.name
     if variable_pairs[variable_tot] != variable_af:
-        raise ValueError(
-            f"The combination {variable_tot} and {variable_af} is invalid"
-        )
+        raise ValueError(f"The combination {variable_tot} and {variable_af} is invalid")
     units = variable_af.units
 
     attrs = {
-        "ERFtsw":{
+        "ERFtsw": {
             "variable_name": "SWDirectEff",
             "long_name": "Short wave Direct aerosol effect",
-            "units": units
+            "units": units,
         },
-        "ERFtswcs":{
+        "ERFtswcs": {
             "variable_name": "SWDirectEff_cs",
-            "long_name":"Short wave Direct aerosol effect clear sky",
-            "units":units
+            "long_name": "Short wave Direct aerosol effect clear sky",
+            "units": units,
         },
-        "ERFtlw":{
-            "variable_name":"LWDirectEff",
+        "ERFtlw": {
+            "variable_name": "LWDirectEff",
             "long_name": "Long wave aerosol direct effect",
-            "units":units
+            "units": units,
         },
         "ERFtlwcs": {
-            "variable_name":"LWDirectEff_cs",
-            "long_name" : "Long wave aerosol direct effect clear sky",
-            "units":units
-        }
+            "variable_name": "LWDirectEff_cs",
+            "long_name": "Long wave aerosol direct effect clear sky",
+            "units": units,
+        },
     }
 
-    dirEffect = ERFt-ERFtaf
+    dirEffect = ERFt - ERFtaf
     dirEffect = dirEffect.rename(attrs[variable_tot]["variable_name"])
     dirEffect.attrs = {**dirEffect.attrs, **dirEffect.attrs}
     return dirEffect
-def calc_cloud_forcing(ERFaf: xarray.DataArray, 
-                        ERFcsaf: xarray.DataArray):
+
+
+def calc_cloud_forcing(ERFaf: xarray.DataArray, ERFcsaf: xarray.DataArray):
     """
     Calculates cloud radiatve effect by aerosols, which is the combined direct and semi direct effects.
     Defined as the difference in aerosol free - aerosol free clear sky.
@@ -516,7 +532,11 @@ def calc_cloud_forcing(ERFaf: xarray.DataArray,
         dirEffect : xarray.DataArray
             Direct radiative effect
     """
-    variable_pairs = {'ERFtaf':'ERFtcsaf','ERFswaf':'ERFswcsaf','ERFtlwaf':'ERFtlwcsaf'}
+    variable_pairs = {
+        "ERFtaf": "ERFtcsaf",
+        "ERFswaf": "ERFswcsaf",
+        "ERFtlwaf": "ERFtlwcsaf",
+    }
     variable_tot = ERFaf.name
     variable_direct = ERFcsaf.name
     if variable_pairs[variable_tot] != variable_direct:
@@ -526,28 +546,27 @@ def calc_cloud_forcing(ERFaf: xarray.DataArray,
     units = variable_direct.units
 
     attrs = {
-        "ERFtaf":{
+        "ERFtaf": {
             "variable_name": "CloudEff",
             "long_name": "Aerosol Cloud radiative effect ",
-            "units": units
+            "units": units,
         },
-        "ERFtswaf":{
+        "ERFtswaf": {
             "variable_name": "SWCloudEff",
             "long_name": "Short wave Aerosol cloud radiative effect",
-            "units": units
+            "units": units,
         },
-        "ERFlwaf":{
+        "ERFlwaf": {
             "variable_name": "LWCloudEff",
             "long_name": "Long wave aerosol cloud radiative effect",
-            "units": units
-        }
-
+            "units": units,
+        },
     }
 
     cloud_effect = ERFaf - ERFcsaf
     cloud_effect = cloud_effect.rename(attrs[variable_tot]["variable_name"])
     cloud_effect.attrs = {**cloud_effect.attrs, **attrs[variable_tot]}
-    
+
     return cloud_effect
 
 
@@ -558,7 +577,12 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArr
 
 
     """
-    varialbe_pairs = {"ERFtsw": "ERFsurfsw", "ERFtswcs": "ERFsurfswcs","ERFt":"ERFsurf","ERFtcs":"ERFsurfcs"}
+    varialbe_pairs = {
+        "ERFtsw": "ERFsurfsw",
+        "ERFtswcs": "ERFsurfswcs",
+        "ERFt": "ERFsurf",
+        "ERFtcs": "ERFsurfcs",
+    }
     variable_toa = delta_rad_toa.name
     variable_surf = delta_rad_surf.name
     units = delta_rad_toa.units
