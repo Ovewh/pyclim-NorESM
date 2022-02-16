@@ -175,7 +175,8 @@ def calc_LW_ERF_toa(
         },
     }
     ERF_lw = experiment_upwelling - ctrl_upwelling
-    ERF_lw.attrs = {**attrs, **ERF_lw.attrs}
+    ERF_lw = ERF_lw.rename(attrs[variable_up]["variable_name"])
+    ERF_lw.attrs = {**ERF_lw.attrs,**attrs[variable_up], }
     return ERF_lw
 
 
@@ -219,6 +220,7 @@ def calc_SW_ERF(
         "rsuscs": "rsdscs",
         "rsutcs": "rsdt",
         "rsutaf": "rsdt",
+        "rsutcsaf": "rsdt"
     }
     variable_down = experiment_downwelling.name
     variable_up = experiment_upwelling.name
@@ -267,7 +269,6 @@ def calc_SW_ERF(
     erf = Snet_exp - Snet_ctrl
     erf = erf.rename(attrs[variable_up]["variable_name"])
     erf.attrs = attrs[variable_up]
-
     return erf
 
 
@@ -365,7 +366,6 @@ def calc_total_ERF_surf(
     erf = (rsns_exp - rlns_exp) - (rsns_ctrl - rlns_ctrl)
     erf = erf.rename(attrs[lookup_var]["variable_name"])
     erf.attrs = {**erf.attrs, **attrs[lookup_var]}
-
     return erf
 
 
@@ -463,7 +463,7 @@ def calc_total_ERF_TOA(
 
 def calc_direct_aerosol_radiative_effect(
     ERFt: xarray.DataArray, ERFtaf: xarray.DataArray
-):
+) -> xarray.DataArray:
     """
     Calculates the direct radiative effect as the difference between shortwave ERF and aerofree ERF 
     to diagnose the direct aerosol forcing. Aerosol free ERF represent "indirect effect"
@@ -489,7 +489,7 @@ def calc_direct_aerosol_radiative_effect(
     variable_af = ERFtaf.name
     if variable_pairs[variable_tot] != variable_af:
         raise ValueError(f"The combination {variable_tot} and {variable_af} is invalid")
-    units = variable_af.units
+    units =ERFt.units
 
     attrs = {
         "ERFtsw": {
@@ -516,7 +516,7 @@ def calc_direct_aerosol_radiative_effect(
 
     dirEffect = ERFt - ERFtaf
     dirEffect = dirEffect.rename(attrs[variable_tot]["variable_name"])
-    dirEffect.attrs = {**dirEffect.attrs, **dirEffect.attrs}
+    dirEffect.attrs = {**dirEffect.attrs, **attrs[variable_tot]}
     return dirEffect
 
 
@@ -534,7 +534,7 @@ def calc_cloud_forcing(ERFaf: xarray.DataArray, ERFcsaf: xarray.DataArray):
     """
     variable_pairs = {
         "ERFtaf": "ERFtcsaf",
-        "ERFswaf": "ERFswcsaf",
+        "ERFtswaf": "ERFtswcsaf",
         "ERFtlwaf": "ERFtlwcsaf",
     }
     variable_tot = ERFaf.name
@@ -556,7 +556,7 @@ def calc_cloud_forcing(ERFaf: xarray.DataArray, ERFcsaf: xarray.DataArray):
             "long_name": "Short wave Aerosol cloud radiative effect",
             "units": units,
         },
-        "ERFlwaf": {
+        "ERFtlwaf": {
             "variable_name": "LWCloudEff",
             "long_name": "Long wave aerosol cloud radiative effect",
             "units": units,
@@ -566,7 +566,6 @@ def calc_cloud_forcing(ERFaf: xarray.DataArray, ERFcsaf: xarray.DataArray):
     cloud_effect = ERFaf - ERFcsaf
     cloud_effect = cloud_effect.rename(attrs[variable_tot]["variable_name"])
     cloud_effect.attrs = {**cloud_effect.attrs, **attrs[variable_tot]}
-
     return cloud_effect
 
 
@@ -616,6 +615,5 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArr
 
     atm_abs = delta_rad_toa - delta_rad_surf
     atm_abs = atm_abs.rename(attrs[variable_toa]["variable_name"])
-    atm_abs.attrs = {**atm_abs.attrs, **attrs[variable_toa]}
-
+    atm_abs.attrs = {**atm_abs.attrs, **attrs[variable_toa]} 
     return atm_abs
