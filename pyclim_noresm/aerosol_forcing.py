@@ -176,7 +176,7 @@ def calc_LW_ERF_toa(
     }
     ERF_lw = experiment_upwelling - ctrl_upwelling
     ERF_lw = ERF_lw.rename(attrs[variable_up]["variable_name"])
-    ERF_lw.attrs = {**ERF_lw.attrs,**attrs[variable_up], }
+    ERF_lw.attrs = {**ERF_lw.attrs,**attrs[variable_up]}
     return ERF_lw
 
 
