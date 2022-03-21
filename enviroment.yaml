@@ -1,0 +1,25 @@
+name: xesmf_env
+channels:
+  - conda-forge
+dependencies:
+  - python<=3.9
+  - dask
+  - jupyterlab
+  - xarray
+  - cartopy
+  - geoviews
+  - jupyter-server-proxy
+  - zarr
+  - dask-labextension
+  - hvplot
+  - ipython
+  - git
+  - black
+  - netcdf4
+  - ca-certificates
+  - certifi
+  - openssl
+  - esmpy
+  - xesmf
+  - matplotlib
+  - pip

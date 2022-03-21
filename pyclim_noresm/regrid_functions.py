@@ -7,10 +7,10 @@ Functions used for regridding
 
 Created on Wednesday November 3 2021
 """
-import sys
+#import sys
 # path to the pyclim-noresm folder
-sys.path.insert(1, '~/pyclim-NorESM/pyclim-noresm/')
-import general_util_funcs as guf
+# sys.path.insert(1, '~/pyclim-NorESM/pyclim-noresm/')
+from . import general_util_funcs as guf
 import xarray as xr
 import xesmf as xe
 import numpy as np
