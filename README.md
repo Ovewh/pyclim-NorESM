@@ -5,7 +5,7 @@ Python scripts used for analysis and plotting output from the Norwegian Earth Sy
 ## Structure
 
 - **pyclim_noresm**: folder which contains functions for reading and analyzing NorESM output
-- **examples**: folder with example scripts to show how the function scripts in **pyclim-noresm** can be used
+- **examples**: folder with example scripts to show how the function scripts in **pyclim_noresm** can be used
 
 ## What can you find
  
