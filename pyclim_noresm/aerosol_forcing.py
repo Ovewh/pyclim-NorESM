@@ -495,7 +495,7 @@ def calc_direct_aerosol_radiative_effect(
     attrs = {
         "ERFt": {
             "variable_name":"DirectEff",
-            "long name": "Direct radiative effect",
+            "long_name": "Direct radiative effect",
             "units" : units
         },
         "ERFtsw": {
