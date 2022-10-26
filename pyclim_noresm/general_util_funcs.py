@@ -68,9 +68,9 @@ def global_avg(ds):
     '''
     # to include functionality for subsets or regional averages:
     if 'time' in ds.dims:
-        weights = xr.ufuncs.cos(xr.ufuncs.deg2rad(ds.lat))*ds.notnull().mean(dim=('lon','time'))
+        weights = xr.apply_ufunc(np.cos,(xr.apply_ufunc(np.deg2rad,ds.lat))*ds.notnull().mean(dim=('lon','time')))
     else:
-        weights = xr.ufuncs.cos(xr.ufuncs.deg2rad(ds.lat))*ds.notnull().mean(dim=('lon'))
+        weights = xr.apply_ufunc(np.cos,(xr.apply_ufunc(np.deg2rad,ds.lat))*ds.notnull().mean(dim=('lon')))
     ds_out = (ds.mean(dim='lon')*weights).sum(dim='lat')/weights.sum()
     if 'long_name'  in ds.attrs:
         ds_out.attrs['long_name']= 'Globally averaged ' + ds.long_name
