@@ -10,7 +10,7 @@ Created on Wednesday November 3 2021
 #import sys
 # path to the pyclim-noresm folder
 # sys.path.insert(1, '~/pyclim-NorESM/pyclim-noresm/')
-import general_util_funcs as guf
+import pyclim_noresm.general_util_funcs as guf
 import xarray as xr
 import xesmf as xe
 import numpy as np
