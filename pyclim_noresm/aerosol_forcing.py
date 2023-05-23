@@ -147,7 +147,7 @@ def calc_LW_ERF_toa(
 
     """
     _check_consitancy_exp_control(experiment_upwelling, ctrl_upwelling)
-    valid_variables = ["rlut", "rlutaf", "rlutcs", "rlutcsaf"]
+    valid_variables = ["rlut", "rlus","rlutaf", "rlutcs", "rlutcsaf"]
     variable_up = experiment_upwelling.name
     units = experiment_upwelling.units
     if variable_up not in valid_variables:
@@ -171,6 +171,11 @@ def calc_LW_ERF_toa(
         "rlutcsaf": {
             "variable_name": "ERFtlwcsaf",
             "long_name": "Effective radiative forcing long wave at the top of the atmosphere clear sky aerosol free",
+            "units": units,
+        },
+        "rlus": {
+            "variable_name": "ERFtsurflw",
+            "long_name": "Effective radiative forcing long wave at the surface",
             "units": units,
         },
     }
@@ -587,6 +592,7 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArr
         "ERFtswcs": "ERFsurfswcs",
         "ERFt": "ERFsurf",
         "ERFtcs": "ERFsurfcs",
+        "ERFtlw": "ERFsurflw",
     }
     variable_toa = delta_rad_toa.name
     variable_surf = delta_rad_surf.name
@@ -615,6 +621,11 @@ def calc_atm_abs(delta_rad_surf: xarray.DataArray, delta_rad_toa: xarray.DataArr
         "ERFtcs": {
             "variable_name": "atmabscs",
             "long_name": "Total atmospheric absorbtion assuming clear sky.",
+            "units": units,
+        },
+        "ERFtlw": {
+            "variable_name": "atmabsLW",
+            "long_name": "Total atmospheric long wave absorbtion.",
             "units": units,
         },
     }
