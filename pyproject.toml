@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8"
 xarray = "^2022.3.0"
 dask = "^2022.5.0"
 typer = "^0.4.1"
