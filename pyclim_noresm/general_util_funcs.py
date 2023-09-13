@@ -579,4 +579,3 @@ def volumeavg_ocn(ds, dp, pweight=None, cmor = True):
     if 'standard_name'  in ds.attrs:
         ds_out.attrs['standard_name']=ds.standard_name
     return ds_out
-   
