@@ -93,7 +93,7 @@ def global_avg(ds):
 
     weights = np.cos(np.deg2rad(ds.lat))
     weights.name = "weights"
-    ds_out = ds.weighted(weights).mean(("lon", "lat"))
+    ds_out = ds.weighted(weights).mean(("lat")).mean(dim="lon")
     #ds_out = (ds.mean(dim="lon") * weights).sum(dim="lat") / weights.sum()
     if "long_name" in ds.attrs:
         ds_out.attrs["long_name"] = "Globally averaged " + ds.long_name
